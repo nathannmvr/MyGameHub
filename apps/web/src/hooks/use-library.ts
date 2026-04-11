@@ -69,7 +69,7 @@ export function useLibrary(filters: LibraryFilters = {}) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['library'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.discover(1) });
+      await queryClient.invalidateQueries({ queryKey: ['discover'] });
       pushToast({
         variant: 'success',
         title: 'Jogo adicionado',
@@ -110,7 +110,7 @@ export function useLibrary(filters: LibraryFilters = {}) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['library'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.discover(1) });
+      await queryClient.invalidateQueries({ queryKey: ['discover'] });
       pushToast({
         variant: 'success',
         title: 'Jogo removido',

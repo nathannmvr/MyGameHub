@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GameStatus, type GameSearchResult } from '@gamehub/shared';
+import { GameStatus, type GameSearchResult, type RecommendationProfile } from '@gamehub/shared';
 import { useDiscover } from '../hooks/use-discover';
 import { useLibrary } from '../hooks/use-library';
 import { usePlatforms } from '../hooks/use-platforms';
@@ -31,7 +31,8 @@ function DiscoverSkeleton() {
 
 export function DiscoverPage() {
   const navigate = useNavigate();
-  const discoverQuery = useDiscover(1);
+  const [profile, setProfile] = useState<RecommendationProfile>('conservative');
+  const discoverQuery = useDiscover(1, 20, profile);
   const platformsQuery = usePlatforms();
   const libraryQuery = useLibrary();
   const [selectedRecommendation, setSelectedRecommendation] = useState<GameSearchResult | null>(null);
@@ -64,16 +65,39 @@ export function DiscoverPage() {
     setSelectedRecommendation(null);
   };
 
+  const dismissRecommendation = async (recommendation: GameSearchResult) => {
+    await discoverQuery.dismissRecommendation.mutateAsync({
+      rawgId: recommendation.rawgId,
+      title: recommendation.title,
+      genres: recommendation.genres,
+      reason: 'Nao tenho interesse neste tipo de jogo',
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <section className="space-y-4">
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-text-secondary">Descobrir</p>
         <h1 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">Recomendações filtradas pelas tuas plataformas.</h1>
-        <p className="max-w-2xl text-text-secondary">O botão adicionar abre um modal rápido para escolher status e plataforma antes de gravar na biblioteca.</p>
+        <p className="max-w-2xl text-text-secondary">Escolhe o perfil de descoberta e marca sugestões sem interesse para o sistema aprender continuamente.</p>
+        <div className="max-w-sm">
+          <Select
+            label="Perfil de recomendação"
+            value={profile}
+            onChange={(event) => setProfile(event.target.value as RecommendationProfile)}
+          >
+            <option value="conservative">Conservador (mais aderente ao teu histórico)</option>
+            <option value="exploratory">Exploratório (mais variedade, mantendo afinidade mínima)</option>
+          </Select>
+        </div>
       </section>
 
       {recommendations.length > 0 ? (
-        <RecommendationGrid recommendations={recommendations} onAdd={(recommendation) => setSelectedRecommendation(recommendation)} />
+        <RecommendationGrid
+          recommendations={recommendations}
+          onAdd={(recommendation) => setSelectedRecommendation(recommendation)}
+          onDismiss={(recommendation) => void dismissRecommendation(recommendation)}
+        />
       ) : (
         <EmptyState
           title="Sem recomendações por agora"

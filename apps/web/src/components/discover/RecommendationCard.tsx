@@ -4,9 +4,10 @@ import { Button } from '../ui/Button';
 interface RecommendationCardProps {
   recommendation: GameSearchResult;
   onAdd: (recommendation: GameSearchResult) => void;
+  onDismiss: (recommendation: GameSearchResult) => void;
 }
 
-export function RecommendationCard({ recommendation, onAdd }: RecommendationCardProps) {
+export function RecommendationCard({ recommendation, onAdd, onDismiss }: RecommendationCardProps) {
   return (
     <article className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-background-card/80 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-primary/10">
       <div className="aspect-[16/10] bg-background-hover">
@@ -23,9 +24,14 @@ export function RecommendationCard({ recommendation, onAdd }: RecommendationCard
           <span>{recommendation.genres.join(' · ') || 'Sem géneros'}</span>
           <span>{recommendation.metacritic ?? 'N/A'}</span>
         </div>
-        <Button variant="secondary" className="w-full" onClick={() => onAdd(recommendation)}>
-          Adicionar
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" className="w-full" onClick={() => onAdd(recommendation)}>
+            Adicionar
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => onDismiss(recommendation)}>
+            Nao recomendar
+          </Button>
+        </div>
       </div>
     </article>
   );

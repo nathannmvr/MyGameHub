@@ -9,7 +9,7 @@ export const queryKeys = {
   gameSearch: (query: string, page: number) => ['games', 'search', query, page] as const,
   gameDetail: (rawgId: number) => ['games', rawgId] as const,
   syncJob: (jobId: string) => ['steam', 'sync', jobId] as const,
-  discover: (page: number) => ['discover', page] as const,
+  discover: (page: number, pageSize: number, profile: 'conservative' | 'exploratory') => ['discover', page, pageSize, profile] as const,
   apiRoutes: [API_ROUTES.HEALTH] as const,
 };
 
