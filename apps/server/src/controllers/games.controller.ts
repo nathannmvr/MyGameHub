@@ -8,6 +8,7 @@ import { IgdbService, type IgdbSearchItem } from "../services/igdb.service.js";
 import { CacheService } from "../services/cache.service.js";
 import { GameDetailsParamSchema } from "../schemas/index.js";
 import { AppError } from "../middleware/error-handler.js";
+import { getAuthContext } from "../middleware/auth.js";
 
 let rawgService: RawgService | null = null;
 let igdbService: IgdbService | null = null;
@@ -164,20 +165,6 @@ async function resolveIgdbCandidatesToRawg(items: IgdbSearchItem[]) {
   return resolved;
 }
 
-async function getCurrentUserId(): Promise<string> {
-  const prisma = getPrismaClient();
-  const user = await prisma.user.findFirst();
-
-  if (!user) {
-    const newUser = await prisma.user.create({
-      data: { username: "default_user" },
-    });
-    return newUser.id;
-  }
-
-  return user.id;
-}
-
 // GET /api/v1/games/search
 export async function searchGames(
   req: Request,
@@ -185,7 +172,7 @@ export async function searchGames(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const { q, page, pageSize } = req.query as unknown as {
       q: string;
       page: number;

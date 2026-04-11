@@ -42,3 +42,13 @@ export {
   type DiscoverQueryInput,
   type RecommendationFeedbackInput,
 } from "./discover.schema.js";
+
+// ─── Auth ───
+export {
+  RegisterSchema,
+  LoginSchema,
+  ForgotPasswordSchema,
+  type RegisterInput,
+  type LoginInput,
+  type ForgotPasswordInput,
+} from "./auth.schema.js";

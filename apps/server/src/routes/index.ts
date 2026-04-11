@@ -2,6 +2,8 @@
 // Main API router — mounts all sub-routers under /api/v1
 
 import { Router } from "express";
+import { requireAuth } from "../middleware/auth.js";
+import { authRouter } from "./auth.routes.js";
 import { platformsRouter } from "./platforms.routes.js";
 import { libraryRouter } from "./library.routes.js";
 import { gamesRouter } from "./games.routes.js";
@@ -12,6 +14,9 @@ import { dashboardRouter } from "./dashboard.routes.js";
 export const apiRouter: ReturnType<typeof Router> = Router();
 
 // ─── Mount Sub-Routers ───
+apiRouter.use("/auth", authRouter);
+apiRouter.use(requireAuth);
+
 apiRouter.use("/platforms", platformsRouter);
 apiRouter.use("/library", libraryRouter);
 apiRouter.use("/games", gamesRouter);

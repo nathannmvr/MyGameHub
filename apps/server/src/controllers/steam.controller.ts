@@ -7,6 +7,7 @@ import { AppError } from "../middleware/error-handler.js";
 import { enqueueSteamSyncJob } from "../jobs/queue.js";
 import { SteamSyncStatusParamSchema } from "../schemas/index.js";
 import { SteamSyncWorkerService } from "../jobs/steam-sync.worker.js";
+import { getAuthContext } from "../middleware/auth.js";
 
 let inlineSteamSyncWorker: SteamSyncWorkerService | null = null;
 
@@ -67,20 +68,6 @@ async function enqueueWithFallback(data: {
   }, 0);
 }
 
-async function getCurrentUserId(): Promise<string> {
-  const prisma = getPrismaClient();
-  const user = await prisma.user.findFirst();
-
-  if (!user) {
-    const created = await prisma.user.create({
-      data: { username: "default_user" },
-    });
-    return created.id;
-  }
-
-  return user.id;
-}
-
 // POST /api/v1/steam/sync
 export async function startSteamSync(
   req: Request,
@@ -88,7 +75,7 @@ export async function startSteamSync(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const { steamId, platformId } = req.body as {
       steamId: string;
       platformId: string;
@@ -144,7 +131,7 @@ export async function getSteamSyncStatus(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const { jobId } = SteamSyncStatusParamSchema.parse(req.params);
 
     const syncJob = await getPrismaClient().syncJob.findFirst({

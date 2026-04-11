@@ -6,6 +6,7 @@ import { apiClient } from '../../lib/api-client';
 import { queryKeys } from '../../lib/query-client';
 import { useDebouncedValue } from '../../hooks/use-debounced-value';
 import { navigationItems } from './navigation';
+import { useAuth } from '../../auth/use-auth';
 
 const routeLabelByPath = new Map<string, string>(navigationItems.map((item) => [item.path, item.label]));
 
@@ -18,6 +19,7 @@ function getCurrentPageLabel(pathname: string) {
 }
 
 export function Header() {
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const pageLabel = getCurrentPageLabel(location.pathname);
@@ -108,10 +110,20 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <div className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-text-secondary md:block">
-            API ready
+            {user?.email ?? 'Sessao'}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              void logout();
+              navigate('/login', { replace: true });
+            }}
+            className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-text-secondary transition hover:bg-white/10 md:block"
+          >
+            Sair
+          </button>
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary-light to-primary text-sm font-bold text-white shadow-lg shadow-primary/20">
-            N
+            {(user?.username?.[0] ?? 'U').toUpperCase()}
           </div>
         </div>
       </div>

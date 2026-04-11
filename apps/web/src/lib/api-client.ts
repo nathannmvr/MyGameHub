@@ -7,10 +7,16 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: false,
+  withCredentials: true,
 });
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error),
+  (error) => {
+    if (error?.response?.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('gamehub:session-expired'));
+    }
+
+    return Promise.reject(error);
+  },
 );

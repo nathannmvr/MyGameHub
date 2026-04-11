@@ -28,6 +28,16 @@ vi.mock('../../../src/hooks/use-steam-sync', () => ({
   }),
 }));
 
+vi.mock('../../../src/auth/use-auth', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-1',
+      username: 'tester',
+      email: 'tester@example.com',
+    },
+  }),
+}));
+
 function renderWithProviders(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },

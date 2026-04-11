@@ -7,7 +7,11 @@
 
 import { describe, it, expect } from "vitest";
 import request from "supertest";
+import dotenv from "dotenv";
+import path from "path";
 import { createApp } from "../../../src/app.js";
+
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 const app = createApp();
 

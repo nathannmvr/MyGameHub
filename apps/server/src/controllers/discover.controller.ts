@@ -7,6 +7,7 @@ import { getPrismaClient } from "../config/database.js";
 import { RecommendationService } from "../services/recommendation.service.js";
 import { RawgService } from "../services/rawg.service.js";
 import { CacheService } from "../services/cache.service.js";
+import { getAuthContext } from "../middleware/auth.js";
 
 let recommendationService: RecommendationService | null = null;
 
@@ -22,20 +23,6 @@ function getService(): RecommendationService {
   return recommendationService;
 }
 
-async function getCurrentUserId(): Promise<string> {
-  const prisma = getPrismaClient();
-  const user = await prisma.user.findFirst();
-
-  if (!user) {
-    const created = await prisma.user.create({
-      data: { username: "default_user" },
-    });
-    return created.id;
-  }
-
-  return user.id;
-}
-
 // GET /api/v1/discover
 export async function getRecommendations(
   req: Request,
@@ -43,7 +30,7 @@ export async function getRecommendations(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const { page, pageSize, profile, experimentGroup, fallbackToTrending } = req.query as unknown as {
       page: number;
       pageSize: number;
@@ -76,7 +63,7 @@ export async function submitRecommendationFeedback(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const payload = req.body as RecommendationFeedbackDTO;
 
     await getService().submitFeedback(userId, payload);

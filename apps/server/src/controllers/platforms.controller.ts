@@ -5,6 +5,7 @@
 import { Request, Response, NextFunction } from "express";
 import { PlatformService } from "../services/platform.service.js";
 import { getPrismaClient } from "../config/database.js";
+import { getAuthContext } from "../middleware/auth.js";
 
 // Singleton service instance
 let platformService: PlatformService | null = null;
@@ -16,32 +17,14 @@ function getService(): PlatformService {
   return platformService;
 }
 
-/**
- * Temporary helper to get the current user ID.
- * Since there's no auth yet, uses the first user in the database.
- * In production, this will come from auth middleware (req.user.id).
- */
-async function getCurrentUserId(): Promise<string> {
-  const prisma = getPrismaClient();
-  const user = await prisma.user.findFirst();
-  if (!user) {
-    // Auto-create a default user if none exists
-    const newUser = await prisma.user.create({
-      data: { username: "default_user" },
-    });
-    return newUser.id;
-  }
-  return user.id;
-}
-
 // GET /api/v1/platforms
 export async function listPlatforms(
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const platforms = await getService().listByUser(userId);
     res.json({ success: true, data: platforms });
   } catch (error) {
@@ -56,7 +39,7 @@ export async function createPlatform(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const platform = await getService().create(userId, req.body);
     res.status(201).json({ success: true, data: platform });
   } catch (error) {
@@ -71,7 +54,7 @@ export async function updatePlatform(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const platform = await getService().update(userId, String(req.params.id), req.body);
     res.json({ success: true, data: platform });
   } catch (error) {
@@ -86,7 +69,7 @@ export async function deletePlatform(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const result = await getService().delete(userId, String(req.params.id));
     res.json({ success: true, data: result });
   } catch (error) {

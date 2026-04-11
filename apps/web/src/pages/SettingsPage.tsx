@@ -9,6 +9,7 @@ import { ErrorState } from '../components/ui/ErrorState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/use-auth';
 
 function SettingsSkeleton() {
   return (
@@ -25,6 +26,7 @@ function SettingsSkeleton() {
 }
 
 export function SettingsPage() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const platformsQuery = usePlatforms();
   const steamSync = useSteamSync();
@@ -55,6 +57,7 @@ export function SettingsPage() {
       <section className="space-y-4">
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-text-secondary">Definições</p>
         <h1 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">Sincronização Steam.</h1>
+        <p className="text-sm text-text-secondary">Sessão ativa: {user?.email}</p>
       </section>
 
       <section className="max-w-2xl">

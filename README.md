@@ -4,6 +4,10 @@ Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 
 ## Estado atual (abril/2026)
 
+- Autenticação real com conta: registro, login, logout e sessão persistente via cookie seguro
+- Isolamento multiusuário em biblioteca, plataformas, dashboard, discover e sync Steam
+- Rotas privadas protegidas por middleware de autenticação (sem fallback de usuário default)
+
 - Busca de catálogo com RAWG como primária e fallback IGDB
 - Adição manual de jogos (título + capa opcional), mesmo sem match em API externa
 - Sync Steam com fallback robusto, capa em alta resolução e classificação por recência + horas
@@ -59,6 +63,9 @@ STEAM_API_KEY="your_steam_api_key_here"
 PORT=3001
 NODE_ENV="development"
 CORS_ORIGIN="http://localhost:5173"
+CORS_ALLOWED_ORIGINS="http://localhost:5173"
+SESSION_COOKIE_NAME="gh_session"
+SESSION_TTL_DAYS=30
 VITE_API_URL="http://localhost:3001"
 ```
 
@@ -84,6 +91,14 @@ pnpm --filter @gamehub/web dev
 ```
 
 Se houver erro de porta ocupada na API (`EADDRINUSE: 3001`), finalize o processo anterior e rode novamente.
+
+## Fluxo de autenticação (Fase 18)
+
+1. No frontend, abra `http://localhost:5173/login`.
+2. Crie conta em `Criar conta`.
+3. Faça login para iniciar sessão persistente (cookie HTTP-only).
+4. Acesse as rotas privadas normalmente (`/`, `/library`, `/discover`, `/platforms`, `/settings`).
+5. Sem sessão válida, o app redireciona para `/login`.
 
 ## Endpoints importantes
 
@@ -121,6 +136,21 @@ pnpm lint
 pnpm build
 pnpm test
 ```
+
+## Deploy recomendado (produção)
+
+- Frontend: Vercel (`apps/web`)
+- API: Render Web Service (`apps/server`)
+- PostgreSQL: Render PostgreSQL
+- Redis: Render Redis
+- Pipeline CI/CD: `.github/workflows/ci-cd.yml`
+- Runbook operacional: `docs/runbook.md`
+
+## Próxima Fase (Fase 19)
+
+- Implementar recuperação de senha real por SMTP Gmail.
+- Substituir o stub de recuperação por envio de email com token de reset e expiração.
+- Endurecer política de segurança de reset (token único, TTL curto, consumo único e rate limit específico).
 
 ## Notas de desenvolvimento
 

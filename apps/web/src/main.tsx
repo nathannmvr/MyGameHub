@@ -6,15 +6,18 @@ import './styles/globals.css';
 import App from './App';
 import { queryClient } from './lib/query-client';
 import { ToastProvider } from './components/feedback/ToastProvider';
+import { AuthProvider } from './auth/AuthProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </ToastProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 );

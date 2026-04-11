@@ -14,9 +14,12 @@ const envSchema = z.object({
   // ─── Server ───
   PORT: z.coerce.number().int().positive().default(3001),
   CORS_ORIGIN: z.string().url().default("http://localhost:5173"),
+  CORS_ALLOWED_ORIGINS: z.string().optional(),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+  SESSION_COOKIE_NAME: z.string().min(3).default("gh_session"),
+  SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
 
   // ─── Redis ───
   REDIS_URL: z.string().default("redis://localhost:6379"),

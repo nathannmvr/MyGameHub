@@ -4,20 +4,57 @@
 
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import { apiRouter } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { openApiDocument } from "./docs/openapi.js";
+import { getEnv } from "./config/env.js";
+
+function getAllowedOrigins(): string[] {
+  const env = getEnv();
+  const csv = env.CORS_ALLOWED_ORIGINS;
+
+  if (!csv) {
+    return [env.CORS_ORIGIN];
+  }
+
+  return csv
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
 
 export function createApp(): express.Express {
+  const env = getEnv();
   const app = express();
+  const allowedOrigins = getAllowedOrigins();
+
+  app.disable("x-powered-by");
 
   // ─── Global Middleware ───
   app.use(
-    cors({
-      origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
     })
   );
+
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error("Origin not allowed by CORS policy"));
+      },
+      credentials: true,
+    })
+  );
+  app.use(cookieParser());
   app.use(express.json());
 
   // ─── Health Check (outside versioned API) ───
@@ -28,6 +65,7 @@ export function createApp(): express.Express {
         status: "ok",
         timestamp: new Date().toISOString(),
         version: "0.0.0",
+        environment: env.NODE_ENV,
       },
     });
   });

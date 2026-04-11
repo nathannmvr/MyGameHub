@@ -17,7 +17,7 @@ export function useGameTelemetry() {
   const queueRef = useRef<TelemetryEvent[]>([]);
   const timerRef = useRef<number | null>(null);
 
-  const flush = useCallback(async () => {
+  const flush = useCallback(async function flushQueue() {
     const batch = queueRef.current.splice(0, BATCH_SIZE);
     if (batch.length === 0) {
       timerRef.current = null;
@@ -46,7 +46,7 @@ export function useGameTelemetry() {
 
     if (queueRef.current.length > 0) {
       timerRef.current = window.setTimeout(() => {
-        void flush();
+        void flushQueue();
       }, FLUSH_MS);
       return;
     }

@@ -8,6 +8,7 @@ import { getPrismaClient } from "../config/database.js";
 import { RawgService } from "../services/rawg.service.js";
 import { CacheService } from "../services/cache.service.js";
 import { AppError } from "../middleware/error-handler.js";
+import { getAuthContext } from "../middleware/auth.js";
 
 // Singleton service instance
 let libraryService: LibraryService | null = null;
@@ -84,24 +85,6 @@ async function ensureGameInCatalog(rawgId: number): Promise<void> {
   }
 }
 
-/**
- * Temporary helper to get the current user ID.
- * Since there's no auth yet, uses the first user in the database.
- * In production, this will come from auth middleware (req.user.id).
- */
-async function getCurrentUserId(): Promise<string> {
-  const prisma = getPrismaClient();
-  const user = await prisma.user.findFirst();
-  if (!user) {
-    // Auto-create a default user if none exists
-    const newUser = await prisma.user.create({
-      data: { username: "default_user" },
-    });
-    return newUser.id;
-  }
-  return user.id;
-}
-
 // GET /api/v1/library
 export async function listLibrary(
   req: Request,
@@ -109,7 +92,7 @@ export async function listLibrary(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const result = await getService().list(userId, req.query as any);
     res.json({ success: true, data: result });
   } catch (error) {
@@ -124,7 +107,7 @@ export async function addToLibrary(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const payload = req.body as {
       rawgId?: number;
       title?: string;
@@ -164,7 +147,7 @@ export async function updateLibraryItem(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const item = await getService().update(userId, String(req.params.id), req.body);
     res.json({ success: true, data: item });
   } catch (error) {
@@ -179,7 +162,7 @@ export async function deleteLibraryItem(
   next: NextFunction
 ): Promise<void> {
   try {
-    const userId = await getCurrentUserId();
+    const { userId } = getAuthContext(req);
     const result = await getService().delete(userId, String(req.params.id));
     res.json({ success: true, data: result });
   } catch (error) {
