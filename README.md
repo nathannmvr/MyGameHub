@@ -12,6 +12,11 @@ Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 - Descoberta com perfil de recomendação selecionável (`conservative` / `exploratory`)
 - Ação "Não recomendar" na página Descobrir com aprendizagem contínua no backend
 - Penalização de anti-preferências (jogos `DROPPED` e avaliações baixas) no ranking
+- Explainability no Discover com `reason` por item recomendado
+- Telemetria de Discovery (impressão, dismiss, add_to_library, open_details, hide) com persistência backend
+- Motor V2 com candidate generation multi-fonte (afinidade, item-item, trending, novidade)
+- Scoring multiobjetivo no backend (afinidade, diversidade, novidade, robustez, penalização)
+- Cold-start no frontend com fallback de discover e estado dedicado
 
 ## Stack
 
