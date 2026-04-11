@@ -2,6 +2,14 @@
 
 Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 
+## Estado atual (abril/2026)
+
+- Busca de catálogo com RAWG como primária e fallback IGDB
+- Adição manual de jogos (título + capa opcional), mesmo sem match em API externa
+- Sync Steam com fallback robusto, capa em alta resolução e classificação por recência + horas
+- Biblioteca com paginação navegável e prioridade de ordenação configurável
+- Busca global no header para pesquisar jogos já cadastrados na biblioteca
+
 ## Stack
 
 - Frontend: React 19, Vite, TypeScript, React Query, Playwright
@@ -36,6 +44,8 @@ pnpm install
 DATABASE_URL="postgresql://postgres:root@localhost:5432/GameHubPessoal?schema=public"
 REDIS_URL="redis://localhost:6379"
 RAWG_API_KEY="your_rawg_api_key_here"
+IGDB_CLIENT_ID="your_igdb_client_id"
+IGDB_CLIENT_SECRET="your_igdb_client_secret"
 STEAM_API_KEY="your_steam_api_key_here"
 PORT=3001
 NODE_ENV="development"
@@ -63,6 +73,8 @@ pnpm --filter @gamehub/server dev
 ```bash
 pnpm --filter @gamehub/web dev
 ```
+
+Se houver erro de porta ocupada na API (`EADDRINUSE: 3001`), finalize o processo anterior e rode novamente.
 
 ## Endpoints importantes
 
@@ -102,5 +114,7 @@ pnpm test
 ## Notas de desenvolvimento
 
 - As rotas do frontend usam contratos de `@gamehub/shared` já prefixados com `/api/v1`.
-- Em desenvolvimento local sem chaves externas, há fallback para manter fluxos críticos funcionais.
+- Em desenvolvimento local sem chaves externas, há fallback para manter fluxos críticos funcionais (Steam fixture/local).
+- A busca de jogos para adicionar usa RAWG e pode complementar com IGDB; resultados são persistidos localmente quando possível.
+- A sincronização Steam recalcula status apenas quando você executa uma nova sync.
 - Arquivos de processo SDD (`spec.md`, `design.md`, `tasks.md`, `.ai/`) são locais/ignorados por padrão.
