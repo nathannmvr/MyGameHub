@@ -4,6 +4,15 @@
 
 import { z } from "zod";
 
+const booleanFromString = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   // ─── Database ───
   DATABASE_URL: z
@@ -20,6 +29,15 @@ const envSchema = z.object({
     .default("development"),
   SESSION_COOKIE_NAME: z.string().min(3).default("gh_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
+
+  // ─── SMTP / Transactional Email ───
+  SMTP_HOST: z.string().min(1).default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().email().optional(),
+  SMTP_SECURE: booleanFromString.optional(),
+  SMTP_RESET_BASE_URL: z.string().url().default("http://localhost:5173/reset-password"),
 
   // ─── Redis ───
   REDIS_URL: z.string().default("redis://localhost:6379"),

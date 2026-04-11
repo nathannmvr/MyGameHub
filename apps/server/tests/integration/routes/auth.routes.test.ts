@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import request from "supertest";
+import crypto from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
@@ -104,5 +105,141 @@ describe("Auth Routes Integration", () => {
     const meRes = await agent.get("/api/v1/auth/me");
     expect(meRes.status).toBe(401);
     expect(meRes.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("POST /api/v1/auth/forgot-password should return neutral response for existing and unknown emails", async () => {
+    await request(app).post("/api/v1/auth/register").send({
+      username: "phase19_forgot",
+      email: "phase19_forgot@example.com",
+      password: "TestPassword123",
+    });
+
+    const knownRes = await request(app).post("/api/v1/auth/forgot-password").send({
+      email: "phase19_forgot@example.com",
+    });
+
+    const unknownRes = await request(app).post("/api/v1/auth/forgot-password").send({
+      email: "phase19_missing@example.com",
+    });
+
+    expect(knownRes.status).toBe(202);
+    expect(unknownRes.status).toBe(202);
+    expect(knownRes.body).toEqual(unknownRes.body);
+  });
+
+  it("POST /api/v1/auth/reset-password should update password with a valid token", async () => {
+    await request(app).post("/api/v1/auth/register").send({
+      username: "phase19_reset_ok",
+      email: "phase19_reset_ok@example.com",
+      password: "OldPassword123",
+    });
+
+    const resetToken = "valid-token-for-phase19";
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    await prisma.user.update({
+      where: { email: "phase19_reset_ok@example.com" },
+      data: {
+        passwordResetTokenHash: resetTokenHash,
+        passwordResetTokenExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      },
+    });
+
+    const resetRes = await request(app).post("/api/v1/auth/reset-password").send({
+      token: resetToken,
+      password: "NewPassword123",
+    });
+
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body.success).toBe(true);
+
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "phase19_reset_ok@example.com",
+      password: "NewPassword123",
+    });
+    expect(loginRes.status).toBe(200);
+
+    const updated = await prisma.user.findUnique({
+      where: { email: "phase19_reset_ok@example.com" },
+      select: {
+        passwordResetTokenHash: true,
+        passwordResetTokenExpiresAt: true,
+      },
+    });
+
+    expect(updated?.passwordResetTokenHash).toBeNull();
+    expect(updated?.passwordResetTokenExpiresAt).toBeNull();
+  });
+
+  it("POST /api/v1/auth/reset-password should reject invalid token", async () => {
+    const res = await request(app).post("/api/v1/auth/reset-password").send({
+      token: "invalid-token",
+      password: "AnyPassword123",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("INVALID_RESET_TOKEN");
+  });
+
+  it("POST /api/v1/auth/reset-password should reject expired token", async () => {
+    await request(app).post("/api/v1/auth/register").send({
+      username: "phase19_reset_exp",
+      email: "phase19_reset_exp@example.com",
+      password: "OldPassword123",
+    });
+
+    const resetToken = "expired-token-for-phase19";
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    await prisma.user.update({
+      where: { email: "phase19_reset_exp@example.com" },
+      data: {
+        passwordResetTokenHash: resetTokenHash,
+        passwordResetTokenExpiresAt: new Date(Date.now() - 5 * 60 * 1000),
+      },
+    });
+
+    const res = await request(app).post("/api/v1/auth/reset-password").send({
+      token: resetToken,
+      password: "NewPassword123",
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("EXPIRED_RESET_TOKEN");
+  });
+
+  it("POST /api/v1/auth/reset-password should reject token reuse", async () => {
+    await request(app).post("/api/v1/auth/register").send({
+      username: "phase19_reset_once",
+      email: "phase19_reset_once@example.com",
+      password: "OldPassword123",
+    });
+
+    const resetToken = "single-use-token-for-phase19";
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    await prisma.user.update({
+      where: { email: "phase19_reset_once@example.com" },
+      data: {
+        passwordResetTokenHash: resetTokenHash,
+        passwordResetTokenExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+      },
+    });
+
+    const firstUse = await request(app).post("/api/v1/auth/reset-password").send({
+      token: resetToken,
+      password: "NewPassword123",
+    });
+
+    const secondUse = await request(app).post("/api/v1/auth/reset-password").send({
+      token: resetToken,
+      password: "OtherPassword123",
+    });
+
+    expect(firstUse.status).toBe(200);
+    expect(secondUse.status).toBe(400);
+    expect(secondUse.body.error.code).toBe("INVALID_RESET_TOKEN");
   });
 });

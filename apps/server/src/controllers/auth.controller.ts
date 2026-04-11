@@ -132,3 +132,18 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await authService.resetPassword(req.body);
+
+    res.json({
+      success: true,
+      data: {
+        reset: true,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}

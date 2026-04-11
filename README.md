@@ -92,7 +92,17 @@ pnpm --filter @gamehub/web dev
 
 Se houver erro de porta ocupada na API (`EADDRINUSE: 3001`), finalize o processo anterior e rode novamente.
 
-## Fluxo de autenticação (Fase 18)
+## Fase 18 concluída: autenticação e multiusuário
+
+Implementação final da Fase 18 entregue com:
+
+- Cadastro, login, logout e sessão persistente com cookie HTTP-only
+- Middleware de autenticação em rotas privadas
+- Isolamento real de dados por usuário (sem fallback default)
+- Páginas de conta no frontend com guards de rota
+- Hardening mínimo de produção (rate limit, CORS restritivo e helmet)
+
+### Fluxo de autenticação
 
 1. No frontend, abra `http://localhost:5173/login`.
 2. Crie conta em `Criar conta`.
@@ -146,11 +156,13 @@ pnpm test
 - Pipeline CI/CD: `.github/workflows/ci-cd.yml`
 - Runbook operacional: `docs/runbook.md`
 
-## Próxima Fase (Fase 19)
+## Fase 19 concluída (SMTP Gmail)
 
-- Implementar recuperação de senha real por SMTP Gmail.
-- Substituir o stub de recuperação por envio de email com token de reset e expiração.
-- Endurecer política de segurança de reset (token único, TTL curto, consumo único e rate limit específico).
+- Recuperação de senha real implementada com `POST /api/v1/auth/forgot-password`.
+- Redefinição de senha implementada com `POST /api/v1/auth/reset-password`.
+- Token de reset com hash persistido, expiração máxima de 60 minutos e consumo único.
+- Resposta neutra mantida para evitar enumeração de contas no forgot-password.
+- Frontend com rota pública `/reset-password` integrada ao backend real.
 
 ## Notas de desenvolvimento
 

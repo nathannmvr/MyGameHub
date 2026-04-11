@@ -48,7 +48,9 @@ export {
   RegisterSchema,
   LoginSchema,
   ForgotPasswordSchema,
+  ResetPasswordSchema,
   type RegisterInput,
   type LoginInput,
   type ForgotPasswordInput,
+  type ResetPasswordInput,
 } from "./auth.schema.js";

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { getPrismaClient } from "../config/database.js";
 import { getEnv } from "../config/env.js";
 import { AppError } from "../middleware/error-handler.js";
+import { EmailService } from "./email.service.js";
 
 const SESSION_EXPIRY_MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -31,8 +32,14 @@ export interface LoginInput {
   password: string;
 }
 
+export interface ResetPasswordInput {
+  token: string;
+  password: string;
+}
+
 export class AuthService {
   private readonly prisma = getPrismaClient();
+  private readonly emailService = new EmailService();
 
   async register(input: RegisterInput): Promise<{ user: AuthUserDTO; sessionToken: string }> {
     const email = input.email.trim().toLowerCase();
@@ -165,7 +172,7 @@ export class AuthService {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true },
+      select: { id: true, email: true },
     });
 
     if (!user) {
@@ -180,6 +187,53 @@ export class AuthService {
       data: {
         passwordResetTokenHash: resetTokenHash,
         passwordResetTokenExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    });
+
+    if (user.email) {
+      await this.emailService.sendPasswordResetEmail({
+        to: user.email,
+        token: resetToken,
+      });
+    }
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<void> {
+    const tokenHash = hashSessionToken(input.token);
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetTokenHash: tokenHash,
+      },
+      select: {
+        id: true,
+        passwordResetTokenExpiresAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError("INVALID_RESET_TOKEN", "Token invalido ou expirado", 400);
+    }
+
+    if (!user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt <= new Date()) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetTokenHash: null,
+          passwordResetTokenExpiresAt: null,
+        },
+      });
+      throw new AppError("EXPIRED_RESET_TOKEN", "Token invalido ou expirado", 400);
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, 12);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetTokenExpiresAt: null,
       },
     });
   }

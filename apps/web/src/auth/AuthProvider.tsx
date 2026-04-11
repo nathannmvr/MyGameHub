@@ -6,7 +6,7 @@ import { API_ROUTES, type ApiResponse } from '@gamehub/shared';
 import { apiClient } from '../lib/api-client';
 import { pushToast } from '../components/feedback/toast-store';
 import { getErrorMessage } from '../lib/error';
-import type { AuthMeResponse, ForgotPasswordPayload, LoginPayload, RegisterPayload, AuthUser } from './auth-types';
+import type { AuthMeResponse, ForgotPasswordPayload, LoginPayload, RegisterPayload, ResetPasswordPayload, AuthUser } from './auth-types';
 import { AuthContext, type AuthContextValue } from './auth-context';
 
 async function fetchMe(): Promise<AuthUser | null> {
@@ -62,6 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forgotPasswordMutation = useMutation({
     mutationFn: async (payload: ForgotPasswordPayload) => {
       await apiClient.post(API_ROUTES.AUTH.FORGOT_PASSWORD, payload);
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async (payload: ResetPasswordPayload) => {
+      await apiClient.post(API_ROUTES.AUTH.RESET_PASSWORD, payload);
     },
   });
 
@@ -139,6 +145,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw error;
         }
       },
+      resetPassword: async (payload) => {
+        try {
+          await resetPasswordMutation.mutateAsync(payload);
+          pushToast({
+            variant: 'success',
+            title: 'Senha redefinida',
+            description: 'A tua senha foi atualizada. Faz login para continuar.',
+          });
+        } catch (error) {
+          const message = getErrorMessage(error);
+          pushToast({
+            variant: 'error',
+            title: 'Falha ao redefinir senha',
+            description: message,
+          });
+          throw error;
+        }
+      },
     }),
     [
       forgotPasswordMutation,
@@ -146,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logoutMutation,
       meQuery.data,
       meQuery.isLoading,
+      resetPasswordMutation,
       registerMutation,
     ],
   );
