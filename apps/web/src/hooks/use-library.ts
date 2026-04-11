@@ -61,6 +61,7 @@ export function useLibrary(filters: LibraryFilters = {}) {
   const libraryQuery = useQuery({
     queryKey: queryKeys.library(filters),
     queryFn: () => fetchLibrary(filters),
+    placeholderData: (previousData) => previousData,
   });
 
   const addLibraryItem = useMutation({

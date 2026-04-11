@@ -234,6 +234,23 @@ describe("Library Routes Integration", () => {
       expect(res.body.success).toBe(false);
       expect(res.body.error.code).toBe("VALIDATION_ERROR");
     });
+
+    it("should return 201 when adding a manual game without rawgId", async () => {
+      const res = await request(app)
+        .post("/api/v1/library")
+        .send({
+          title: "Manual Integration Game",
+          coverUrl: "https://images.example.com/manual-game.jpg",
+          platformId: defaultPlatform.id,
+          status: "BACKLOG",
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.game.title).toBe("Manual Integration Game");
+      expect(res.body.data.game.rawgId).toBeNull();
+      expect(res.body.data.game.coverUrl).toBe("https://images.example.com/manual-game.jpg");
+    });
   });
 
   // ─── PUT /api/v1/library/:id ───

@@ -185,6 +185,19 @@ describe("LibraryService", () => {
         "GAME_NOT_FOUND"
       );
     });
+
+    it("should create a manual game when rawgId is not provided", async () => {
+      const result = await service.addGame(testUser.id, {
+        title: "Jogo Manual Exclusivo",
+        coverUrl: "https://images.example.com/manual-cover.jpg",
+        platformId: testPlatform.id,
+        status: "WISHLIST",
+      });
+
+      expect(result.game.title).toBe("Jogo Manual Exclusivo");
+      expect(result.game.rawgId).toBeNull();
+      expect(result.game.coverUrl).toBe("https://images.example.com/manual-cover.jpg");
+    });
   });
 
   // ─── list ───

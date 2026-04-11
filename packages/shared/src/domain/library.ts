@@ -23,7 +23,9 @@ export interface LibraryItem {
 }
 
 export interface AddToLibraryDTO {
-  rawgId: number; // Frontend identifies game by RAWG ID
+  rawgId?: number;
+  title?: string;
+  coverUrl?: string;
   platformId: string;
   status: GameStatus;
   rating?: number;

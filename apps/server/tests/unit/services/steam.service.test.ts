@@ -46,7 +46,13 @@ describe("SteamService", () => {
           game_count: 2,
           games: [
             { appid: 570, name: "Dota 2", playtime_forever: 12500, img_icon_url: "a" },
-            { appid: 730, name: "Counter-Strike 2", playtime_forever: 8000, img_icon_url: "b" },
+            {
+              appid: 730,
+              name: "Counter-Strike 2",
+              playtime_forever: 8000,
+              img_icon_url: "b",
+              rtime_last_played: 1711584000,
+            },
           ],
         },
       })
@@ -59,6 +65,8 @@ describe("SteamService", () => {
     expect(result.games).toHaveLength(2);
     expect(result.games[0].appId).toBe(570);
     expect(result.games[1].playtimeForever).toBe(8000);
+    expect(result.games[0].lastPlayedAt).toBeNull();
+    expect(result.games[1].lastPlayedAt).toBeInstanceOf(Date);
   });
 
   it("steam 401 should throw STEAM_API_UNAUTHORIZED with diagnostic details", async () => {

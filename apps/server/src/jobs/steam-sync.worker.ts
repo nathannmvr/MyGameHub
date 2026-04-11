@@ -8,6 +8,7 @@ import { getRedisConfig } from "../config/redis.js";
 import { RawgService } from "../services/rawg.service.js";
 import { SteamService, type SteamOwnedGame } from "../services/steam.service.js";
 import { STEAM_SYNC_QUEUE_NAME, type SteamSyncJobData } from "./steam-sync.job.js";
+import { AppError } from "../middleware/error-handler.js";
 
 interface RawgSearchLike {
   searchGames(query: string, page?: number, pageSize?: number): Promise<{
@@ -28,7 +29,34 @@ interface SteamServiceLike {
   getOwnedGames(steamId: string): Promise<{ total: number; games: SteamOwnedGame[] }>;
 }
 
+function buildSteamCoverUrl(appId: number): string {
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`;
+}
+
+function resolveSteamCoverUrl(steamGame: SteamOwnedGame): string {
+  return buildSteamCoverUrl(steamGame.appId);
+}
+
 export function categorizeByPlaytime(playtimeMinutes: number): GameStatus {
+  return categorizeSteamStatus(playtimeMinutes, null);
+}
+
+export function categorizeSteamStatus(
+  playtimeMinutes: number,
+  lastPlayedAt: Date | null,
+  now = new Date()
+): GameStatus {
+  if (lastPlayedAt) {
+    const cutoff = new Date(now);
+    cutoff.setMonth(cutoff.getMonth() - 3);
+
+    if (lastPlayedAt >= cutoff) {
+      return "PLAYING";
+    }
+
+    return playtimeMinutes >= 240 ? "PLAYED" : "DROPPED";
+  }
+
   if (playtimeMinutes === 0) {
     return "BACKLOG";
   }
@@ -72,6 +100,23 @@ export class SteamSyncWorkerService {
         data: { status: "RUNNING", errorMessage: null },
       });
 
+      const platform = await this.prisma.platform.findFirst({
+        where: {
+          id: data.platformId,
+          userId: data.userId,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      if (!platform) {
+        throw new AppError(
+          "PLATFORM_NOT_ACTIVE",
+          "Selected platform was not found or is inactive for this user",
+          409
+        );
+      }
+
       const owned = await this.steamService.getOwnedGames(data.steamId);
 
       await this.prisma.syncJob.update({
@@ -83,6 +128,8 @@ export class SteamSyncWorkerService {
       });
 
       const gamesToProcess = this.maxItems ? owned.games.slice(0, this.maxItems) : owned.games;
+      let importedCount = 0;
+      let alreadyInLibraryCount = 0;
 
       await this.prisma.syncJob.update({
         where: { id: data.syncJobId },
@@ -110,10 +157,20 @@ export class SteamSyncWorkerService {
                 userId: data.userId,
                 gameId: game.id,
                 platformId: data.platformId,
-                status: categorizeByPlaytime(steamGame.playtimeForever),
+                status: categorizeSteamStatus(steamGame.playtimeForever, steamGame.lastPlayedAt),
                 playtimeHours: steamGame.playtimeForever / 60,
               },
             });
+            importedCount += 1;
+          } else {
+            await this.prisma.userGame.update({
+              where: { id: existing.id },
+              data: {
+                status: categorizeSteamStatus(steamGame.playtimeForever, steamGame.lastPlayedAt),
+                playtimeHours: steamGame.playtimeForever / 60,
+              },
+            });
+            alreadyInLibraryCount += 1;
           }
         } catch {
           // Partial game failure should not fail the full sync.
@@ -127,6 +184,18 @@ export class SteamSyncWorkerService {
             },
           });
         }
+      }
+
+      if (
+        gamesToProcess.length > 0 &&
+        importedCount === 0 &&
+        alreadyInLibraryCount === 0
+      ) {
+        throw new AppError(
+          "STEAM_SYNC_NO_GAMES_IMPORTED",
+          "Steam sync finished but no game could be imported. Check RAWG/Steam availability and selected platform.",
+          502
+        );
       }
 
       await this.prisma.syncJob.update({
@@ -158,11 +227,56 @@ export class SteamSyncWorkerService {
     });
 
     if (existing) {
+      if (!existing.coverUrl) {
+        return this.prisma.game.update({
+          where: { id: existing.id },
+          data: {
+            coverUrl: resolveSteamCoverUrl(steamGame),
+          },
+        });
+      }
+
       return existing;
     }
 
-    const rawg = await this.rawgService.searchGames(steamGame.name, 1, 1);
-    const first = rawg.items[0];
+    let first:
+      | {
+          rawgId: number;
+          slug: string;
+          title: string;
+          coverUrl: string | null;
+          releaseDate: string | null;
+          genres: string[];
+          platforms: string[];
+          metacritic: number | null;
+        }
+      | undefined;
+
+    try {
+      const rawg = await this.rawgService.searchGames(steamGame.name, 1, 1);
+      first = rawg.items[0];
+    } catch {
+      // RAWG is optional for Steam sync enrichment; fallback to Steam metadata.
+    }
+
+    if (first?.rawgId) {
+      const existingByRawg = await this.prisma.game.findUnique({
+        where: { rawgId: first.rawgId },
+      });
+
+      if (existingByRawg) {
+        return this.prisma.game.update({
+          where: { id: existingByRawg.id },
+          data: {
+            steamAppId: existingByRawg.steamAppId ?? steamGame.appId,
+            coverUrl:
+              existingByRawg.coverUrl ??
+              first.coverUrl ??
+              resolveSteamCoverUrl(steamGame),
+          },
+        });
+      }
+    }
 
     return this.prisma.game.create({
       data: {
@@ -170,7 +284,7 @@ export class SteamSyncWorkerService {
         title: first?.title ?? steamGame.name,
         rawgId: first?.rawgId ?? null,
         rawgSlug: first?.slug ?? null,
-        coverUrl: first?.coverUrl ?? null,
+        coverUrl: first?.coverUrl ?? resolveSteamCoverUrl(steamGame),
         releaseDate: first?.releaseDate ? new Date(first.releaseDate) : null,
         genres: first?.genres ?? [],
         platforms: first?.platforms ?? [],

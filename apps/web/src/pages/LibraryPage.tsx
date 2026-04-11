@@ -40,16 +40,27 @@ function LibrarySkeleton() {
 
 export function LibraryPage() {
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<LibraryFiltersValue>({ sort: 'added', order: 'desc' });
+  const [filters, setFilters] = useState<LibraryFiltersValue>({
+    sort: 'added',
+    order: 'desc',
+    page: 1,
+  });
   const [openAddModal, setOpenAddModal] = useState(false);
   const libraryQuery = useLibrary(filters);
   const platformsQuery = usePlatforms();
 
   const items = useMemo(() => libraryQuery.data?.data ?? [], [libraryQuery.data]);
   const pagination = libraryQuery.data?.pagination;
-  const hasActiveFilters = Boolean(filters.status || filters.platformId || filters.search?.trim() || filters.sort !== 'added' || filters.order !== 'desc');
+  const priorityMode = filters.sort === 'playtime' ? 'playtime-first' : 'recent-first';
+  const hasActiveFilters = Boolean(
+    filters.status ||
+      filters.platformId ||
+      filters.search?.trim() ||
+      filters.sort !== 'added' ||
+      filters.order !== 'desc'
+  );
 
-  if (libraryQuery.isLoading || platformsQuery.isLoading) {
+  if ((libraryQuery.isLoading && !libraryQuery.data) || (platformsQuery.isLoading && !platformsQuery.data)) {
     return <LibrarySkeleton />;
   }
 
@@ -72,7 +83,33 @@ export function LibraryPage() {
         <Button onClick={() => setOpenAddModal(true)}>Adicionar jogo</Button>
       </section>
 
-      <LibraryFilters value={filters} platforms={platforms} onChange={setFilters} />
+      <LibraryFilters
+        value={filters}
+        platforms={platforms}
+        showSortAndOrder={false}
+        priorityMode={priorityMode}
+        onPriorityChange={(nextMode) => {
+          setFilters((prev) => ({
+            ...prev,
+            sort: nextMode === 'playtime-first' ? 'playtime' : 'added',
+            order: 'desc',
+            page: 1,
+          }));
+        }}
+        onChange={(nextFilters) => {
+          const hasNonPageChange =
+            nextFilters.status !== filters.status ||
+            nextFilters.platformId !== filters.platformId ||
+            nextFilters.search !== filters.search ||
+            nextFilters.sort !== filters.sort ||
+            nextFilters.order !== filters.order;
+
+          setFilters({
+            ...nextFilters,
+            page: hasNonPageChange ? 1 : nextFilters.page ?? filters.page ?? 1,
+          });
+        }}
+      />
 
       {items.length > 0 ? (
         <GameGrid>
@@ -102,7 +139,11 @@ export function LibraryPage() {
           secondaryActionLabel={hasActiveFilters ? 'Limpar filtros' : 'Explorar recomendações'}
           onSecondaryAction={() => {
             if (hasActiveFilters) {
-              setFilters({ sort: 'added', order: 'desc' });
+              setFilters({
+                sort: 'added',
+                order: 'desc',
+                page: 1,
+              });
               return;
             }
 
@@ -113,9 +154,30 @@ export function LibraryPage() {
 
       {pagination ? (
         <div className="flex items-center justify-between rounded-3xl border border-white/10 bg-background-card/80 px-5 py-4 text-sm text-text-secondary">
-          <span>
-            Página {pagination.page} de {pagination.totalPages}
-          </span>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => setFilters((prev) => ({ ...prev, page: Math.max(1, pagination.page - 1) }))}
+              disabled={pagination.page <= 1}
+            >
+              Anterior
+            </Button>
+            <span>
+              Página {pagination.page} de {pagination.totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  page: Math.min(pagination.totalPages, pagination.page + 1),
+                }))
+              }
+              disabled={pagination.page >= pagination.totalPages}
+            >
+              Próxima
+            </Button>
+          </div>
           <span>{pagination.totalItems} jogos encontrados</span>
         </div>
       ) : null}

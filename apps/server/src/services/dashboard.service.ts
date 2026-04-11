@@ -61,7 +61,10 @@ export class DashboardService {
         game: true,
         platform: true,
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [
+        { updatedAt: "desc" },
+        { playtimeHours: { sort: "desc", nulls: "last" } },
+      ],
     });
 
     // 5. Games completed this year (status = PLAYED, addedAt in current year)

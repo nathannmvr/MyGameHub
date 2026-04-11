@@ -13,7 +13,18 @@ export const AddToLibrarySchema = z.object({
   rawgId: z
     .number()
     .int("RAWG ID must be an integer")
-    .positive("RAWG ID must be positive"),
+    .positive("RAWG ID must be positive")
+    .optional(),
+  title: z
+    .string()
+    .min(1, "Title must not be empty")
+    .max(200, "Title must be at most 200 characters")
+    .optional(),
+  coverUrl: z
+    .string()
+    .url("Cover URL must be a valid URL")
+    .max(2000, "Cover URL must be at most 2000 characters")
+    .optional(),
   platformId: z
     .string()
     .min(1, "Platform ID is required"),
@@ -37,6 +48,14 @@ export const AddToLibrarySchema = z.object({
     .max(5000, "Review must be at most 5000 characters")
     .nullable()
     .optional(),
+}).superRefine((data, ctx) => {
+  if (data.rawgId === undefined && !data.title?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide rawgId or title to add a game",
+      path: ["title"],
+    });
+  }
 });
 
 /**

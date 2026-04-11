@@ -4,11 +4,13 @@
 import { Request, Response, NextFunction } from "express";
 import { getPrismaClient } from "../config/database.js";
 import { RawgService } from "../services/rawg.service.js";
+import { IgdbService, type IgdbSearchItem } from "../services/igdb.service.js";
 import { CacheService } from "../services/cache.service.js";
 import { GameDetailsParamSchema } from "../schemas/index.js";
 import { AppError } from "../middleware/error-handler.js";
 
 let rawgService: RawgService | null = null;
+let igdbService: IgdbService | null = null;
 
 function mapCatalogGame(game: {
   rawgId: number | null;
@@ -40,6 +42,16 @@ function getRawgService(): RawgService {
   }
 
   return rawgService;
+}
+
+function getIgdbService(): IgdbService {
+  if (!igdbService) {
+    igdbService = new IgdbService({
+      cache: new CacheService(),
+    });
+  }
+
+  return igdbService;
 }
 
 async function searchGamesLocal(query: string, page: number, pageSize: number) {
@@ -115,6 +127,43 @@ async function persistSearchResults(items: Array<{
   );
 }
 
+async function resolveIgdbCandidatesToRawg(items: IgdbSearchItem[]) {
+  const resolved: Array<{
+    rawgId: number;
+    slug: string;
+    title: string;
+    coverUrl: string | null;
+    releaseDate: string | null;
+    genres: string[];
+    platforms: string[];
+    metacritic: number | null;
+  }> = [];
+
+  const seenRawgIds = new Set<number>();
+  const maxCandidates = 8;
+
+  for (const item of items.slice(0, maxCandidates)) {
+    try {
+      const matches = await getRawgService().searchGames(item.title, 1, 5);
+      const exactMatch = matches.items.find(
+        (candidate) => candidate.title.toLowerCase() === item.title.toLowerCase()
+      );
+      const selected = exactMatch ?? matches.items[0];
+
+      if (!selected || seenRawgIds.has(selected.rawgId)) {
+        continue;
+      }
+
+      seenRawgIds.add(selected.rawgId);
+      resolved.push(selected);
+    } catch {
+      // Continue resolving other IGDB candidates if one lookup fails.
+    }
+  }
+
+  return resolved;
+}
+
 async function getCurrentUserId(): Promise<string> {
   const prisma = getPrismaClient();
   const user = await prisma.user.findFirst();
@@ -147,8 +196,41 @@ export async function searchGames(
 
     try {
       searchResult = await getRawgService().searchGames(q, page, pageSize);
-      await persistSearchResults(searchResult.items);
+      if (searchResult.items.length > 0) {
+        await persistSearchResults(searchResult.items);
+      }
     } catch {
+      // Try IGDB/local fallback below.
+    }
+
+    if (!searchResult || searchResult.items.length === 0) {
+      const igdb = getIgdbService();
+
+      if (igdb.isConfigured()) {
+        try {
+          const igdbResult = await igdb.searchGames(q, page, pageSize);
+          const resolvedItems = await resolveIgdbCandidatesToRawg(igdbResult.items);
+
+          if (resolvedItems.length > 0) {
+            searchResult = {
+              items: resolvedItems,
+              pagination: {
+                totalItems: resolvedItems.length,
+                page,
+                pageSize,
+                totalPages: igdbResult.pagination.totalPages,
+              },
+            };
+
+            await persistSearchResults(resolvedItems);
+          }
+        } catch {
+          // Fallback to local search below.
+        }
+      }
+    }
+
+    if (!searchResult || searchResult.items.length === 0) {
       searchResult = await searchGamesLocal(q, page, pageSize);
     }
 

@@ -7,7 +7,10 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import { AppError } from "../middleware/error-handler.js";
 
 export interface AddGameData {
-  rawgId: number;
+  rawgId?: number;
+  title?: string;
+  coverUrl?: string | null;
+  steamAppId?: number;
   platformId: string;
   status: string;
   rating?: number | null;
@@ -36,6 +39,81 @@ export interface ListOptions {
 export class LibraryService {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private async resolveGame(data: AddGameData) {
+    if (data.rawgId !== undefined) {
+      const byRawgId = await this.prisma.game.findUnique({
+        where: { rawgId: data.rawgId },
+      });
+
+      if (byRawgId) {
+        if (!byRawgId.coverUrl && data.coverUrl) {
+          return this.prisma.game.update({
+            where: { id: byRawgId.id },
+            data: { coverUrl: data.coverUrl },
+          });
+        }
+
+        return byRawgId;
+      }
+
+      if (!data.title) {
+        throw new AppError(
+          "GAME_NOT_FOUND",
+          `Game with RAWG ID ${data.rawgId} not found`,
+          404
+        );
+      }
+
+      return this.prisma.game.create({
+        data: {
+          rawgId: data.rawgId,
+          title: data.title,
+          coverUrl: data.coverUrl ?? null,
+          steamAppId: data.steamAppId,
+        },
+      });
+    }
+
+    const normalizedTitle = data.title?.trim();
+
+    if (!normalizedTitle) {
+      throw new AppError(
+        "GAME_TITLE_REQUIRED",
+        "Game title is required when RAWG ID is not provided",
+        400
+      );
+    }
+
+    const byTitle = await this.prisma.game.findFirst({
+      where: {
+        title: {
+          equals: normalizedTitle,
+          mode: "insensitive",
+        },
+        rawgId: null,
+      },
+    });
+
+    if (byTitle) {
+      if (!byTitle.coverUrl && data.coverUrl) {
+        return this.prisma.game.update({
+          where: { id: byTitle.id },
+          data: { coverUrl: data.coverUrl },
+        });
+      }
+
+      return byTitle;
+    }
+
+    return this.prisma.game.create({
+      data: {
+        title: normalizedTitle,
+        coverUrl: data.coverUrl ?? null,
+        steamAppId: data.steamAppId,
+      },
+    });
+  }
+
   /**
    * Add a game to the user's library.
    * Finds the Game by rawgId, validates platform, and creates UserGame.
@@ -45,18 +123,7 @@ export class LibraryService {
    * Throws GAME_ALREADY_IN_LIBRARY (409) if user already has this game → RN-04.
    */
   async addGame(userId: string, data: AddGameData) {
-    // 1. Find game by rawgId
-    const game = await this.prisma.game.findUnique({
-      where: { rawgId: data.rawgId },
-    });
-
-    if (!game) {
-      throw new AppError(
-        "GAME_NOT_FOUND",
-        `Game with RAWG ID ${data.rawgId} not found`,
-        404
-      );
-    }
+    const game = await this.resolveGame(data);
 
     // 2. Validate platform exists → RN-05
     const platform = await this.prisma.platform.findUnique({
@@ -146,7 +213,9 @@ export class LibraryService {
     }
 
     // Build orderBy clause
-    let orderBy: Prisma.UserGameOrderByWithRelationInput;
+    let orderBy:
+      | Prisma.UserGameOrderByWithRelationInput
+      | Prisma.UserGameOrderByWithRelationInput[];
 
     switch (sort) {
       case "name":
@@ -160,7 +229,10 @@ export class LibraryService {
         break;
       case "added":
       default:
-        orderBy = { addedAt: order };
+        orderBy = [
+          { addedAt: order },
+          { playtimeHours: { sort: "desc", nulls: "last" } },
+        ];
         break;
     }
 

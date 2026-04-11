@@ -10,6 +10,7 @@ export interface SteamOwnedGame {
   name: string;
   playtimeForever: number;
   iconUrl: string | null;
+  lastPlayedAt: Date | null;
 }
 
 export interface SteamOwnedGamesResult {
@@ -25,6 +26,7 @@ interface SteamApiResponse {
       name?: string;
       playtime_forever?: number;
       img_icon_url?: string;
+      rtime_last_played?: number;
     }>;
   };
 }
@@ -49,10 +51,28 @@ export class SteamService {
     this.fixtureGames =
       options.fixtureGames ??
       [
-        { appId: 292030, name: "The Witcher 3: Wild Hunt", playtimeForever: 220, iconUrl: null },
-        { appId: 1174180, name: "Red Dead Redemption 2", playtimeForever: 120, iconUrl: null },
-        { appId: 620, name: "Portal 2", playtimeForever: 0, iconUrl: null },
-        { appId: 1085660, name: "Destiny 2", playtimeForever: 15, iconUrl: null },
+        {
+          appId: 292030,
+          name: "The Witcher 3: Wild Hunt",
+          playtimeForever: 220,
+          iconUrl: null,
+          lastPlayedAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000),
+        },
+        {
+          appId: 1174180,
+          name: "Red Dead Redemption 2",
+          playtimeForever: 120,
+          iconUrl: null,
+          lastPlayedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+        },
+        { appId: 620, name: "Portal 2", playtimeForever: 0, iconUrl: null, lastPlayedAt: null },
+        {
+          appId: 1085660,
+          name: "Destiny 2",
+          playtimeForever: 15,
+          iconUrl: null,
+          lastPlayedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+        },
       ];
   }
 
@@ -152,7 +172,14 @@ export class SteamService {
         appId: game.appid,
         name: game.name ?? `App ${game.appid}`,
         playtimeForever: game.playtime_forever ?? 0,
-        iconUrl: game.img_icon_url ?? null,
+        iconUrl:
+          game.img_icon_url && game.img_icon_url.trim().length > 0
+            ? `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`
+            : null,
+        lastPlayedAt:
+          game.rtime_last_played && game.rtime_last_played > 0
+            ? new Date(game.rtime_last_played * 1000)
+            : null,
       })),
     };
   }

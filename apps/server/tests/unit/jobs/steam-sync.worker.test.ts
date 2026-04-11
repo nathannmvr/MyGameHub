@@ -52,8 +52,20 @@ describe("SteamSyncWorkerService", () => {
       getOwnedGames: vi.fn().mockResolvedValue({
         total: 2,
         games: [
-          { appId: 570, name: "Dota 2", playtimeForever: 0, iconUrl: null },
-          { appId: 730, name: "Counter-Strike 2", playtimeForever: 200, iconUrl: null },
+          {
+            appId: 570,
+            name: "Dota 2",
+            playtimeForever: 0,
+            iconUrl: null,
+            lastPlayedAt: new Date("2025-11-01T00:00:00.000Z"),
+          },
+          {
+            appId: 730,
+            name: "Counter-Strike 2",
+            playtimeForever: 200,
+            iconUrl: null,
+            lastPlayedAt: new Date("2026-03-20T00:00:00.000Z"),
+          },
         ],
       }),
     };
@@ -80,8 +92,12 @@ describe("SteamSyncWorkerService", () => {
     expect(finishedJob.totalItems).toBe(2);
     expect(finishedJob.processedItems).toBe(2);
     expect(userGames).toHaveLength(2);
-    expect(userGames.some((g) => g.status === "BACKLOG")).toBe(true);
-    expect(userGames.some((g) => g.status === "PLAYED")).toBe(true);
+    expect(userGames.some((g) => g.status === "DROPPED")).toBe(true);
+    expect(userGames.some((g) => g.status === "PLAYING")).toBe(true);
+
+    const syncedGames = await prisma.game.findMany({ where: { steamAppId: { in: [570, 730] } } });
+    expect(syncedGames).toHaveLength(2);
+    expect(syncedGames.every((game) => Boolean(game.coverUrl))).toBe(true);
   });
 
   it("should ignore game already in user library (RN-06)", async () => {
@@ -110,7 +126,15 @@ describe("SteamSyncWorkerService", () => {
     const steamService = {
       getOwnedGames: vi.fn().mockResolvedValue({
         total: 1,
-        games: [{ appId: 570, name: "Dota 2", playtimeForever: 500, iconUrl: null }],
+        games: [
+          {
+            appId: 570,
+            name: "Dota 2",
+            playtimeForever: 500,
+            iconUrl: null,
+            lastPlayedAt: new Date("2025-10-01T00:00:00.000Z"),
+          },
+        ],
       }),
     };
 
@@ -129,9 +153,10 @@ describe("SteamSyncWorkerService", () => {
 
     const userGames = await prisma.userGame.findMany({ where: { userId: user.id } });
     expect(userGames).toHaveLength(1);
+    expect(userGames[0].status).toBe("PLAYED");
   });
 
-  it("should continue processing when one game fails", async () => {
+  it("should continue processing when RAWG enrichment fails for one game", async () => {
     const user = await prisma.user.create({ data: { username: "worker_user_3" } });
     const platform = await prisma.platform.create({
       data: { userId: user.id, name: "PC", manufacturer: "Various" },
@@ -145,8 +170,20 @@ describe("SteamSyncWorkerService", () => {
       getOwnedGames: vi.fn().mockResolvedValue({
         total: 2,
         games: [
-          { appId: 111, name: "Broken Name", playtimeForever: 10, iconUrl: null },
-          { appId: 222, name: "Valid Game", playtimeForever: 300, iconUrl: null },
+          {
+            appId: 111,
+            name: "Broken Name",
+            playtimeForever: 10,
+            iconUrl: null,
+            lastPlayedAt: new Date("2025-10-01T00:00:00.000Z"),
+          },
+          {
+            appId: 222,
+            name: "Valid Game",
+            playtimeForever: 300,
+            iconUrl: null,
+            lastPlayedAt: new Date("2026-03-20T00:00:00.000Z"),
+          },
         ],
       }),
     };
@@ -172,7 +209,7 @@ describe("SteamSyncWorkerService", () => {
 
     expect(finishedJob.status).toBe("COMPLETED");
     expect(finishedJob.processedItems).toBe(2);
-    expect(userGames).toHaveLength(1);
+    expect(userGames).toHaveLength(2);
   });
 
   it("should mark SyncJob as FAILED when fatal error happens", async () => {

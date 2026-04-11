@@ -17,6 +17,9 @@ interface AddGameModalProps {
 export function AddGameModal({ open, onClose }: AddGameModalProps) {
   const [search, setSearch] = useState('');
   const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualCoverUrl, setManualCoverUrl] = useState('');
   const [platformId, setPlatformId] = useState('');
   const [status, setStatus] = useState<GameStatus>(GameStatus.BACKLOG);
   const [rating, setRating] = useState('');
@@ -31,15 +34,26 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
 
   const effectivePlatformId = platformId || platforms[0]?.id || '';
 
-  const selectedGameLabel = useMemo(() => selectedGame?.title ?? 'Nenhum jogo selecionado', [selectedGame]);
+  const selectedGameLabel = useMemo(() => {
+    if (manualMode) {
+      return manualTitle.trim() || 'Preencha o título manualmente';
+    }
+
+    return selectedGame?.title ?? 'Nenhum jogo selecionado';
+  }, [manualMode, manualTitle, selectedGame]);
 
   const addGame = async () => {
-    if (!selectedGame || !effectivePlatformId) {
+    const trimmedTitle = manualTitle.trim();
+    const resolvedCoverUrl = manualCoverUrl.trim();
+
+    if ((!selectedGame && !trimmedTitle) || !effectivePlatformId) {
       return;
     }
 
     await libraryQuery.addLibraryItem.mutateAsync({
-      rawgId: selectedGame.rawgId,
+      rawgId: selectedGame?.rawgId,
+      title: selectedGame?.title ?? trimmedTitle,
+      coverUrl: resolvedCoverUrl || selectedGame?.coverUrl || undefined,
       platformId: effectivePlatformId,
       status,
       rating: rating ? Number(rating) : undefined,
@@ -58,7 +72,8 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Digite ao menos 2 caracteres"
-          helperText="Pesquisa no catálogo RAWG e mantém a biblioteca local em sincronia."
+          helperText="Pesquisa no catálogo RAWG com fallback IGDB e mantém a biblioteca local em sincronia."
+          disabled={manualMode}
         />
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -75,7 +90,10 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
                   key={game.rawgId}
                   type="button"
                   className="rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition hover:border-primary/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => setSelectedGame(game)}
+                  onClick={() => {
+                    setSelectedGame(game);
+                    setManualMode(false);
+                  }}
                   disabled={game.alreadyInLibrary}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -91,7 +109,56 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
               ))}
             </div>
           ) : search.trim().length >= 2 && !searchQuery.isFetching ? (
-            <p className="text-sm text-text-secondary">Sem resultados para esta pesquisa.</p>
+            <div className="space-y-2">
+              <p className="text-sm text-text-secondary">Sem resultados para esta pesquisa.</p>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  setManualMode(true);
+                  setSelectedGame(null);
+                  setManualTitle(search.trim());
+                }}
+              >
+                Adicionar manualmente este jogo
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Modo manual</p>
+            <Button
+              variant={manualMode ? 'primary' : 'secondary'}
+              onClick={() => {
+                setManualMode((prev) => !prev);
+                setSelectedGame(null);
+                if (!manualMode) {
+                  setManualTitle(search.trim());
+                }
+              }}
+            >
+              {manualMode ? 'Usar busca API' : 'Preencher manualmente'}
+            </Button>
+          </div>
+
+          {manualMode ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label="Título do jogo"
+                value={manualTitle}
+                onChange={(event) => setManualTitle(event.target.value)}
+                placeholder="Ex.: Meu jogo indie"
+              />
+              <Input
+                label="URL da capa (opcional)"
+                value={manualCoverUrl}
+                onChange={(event) => setManualCoverUrl(event.target.value)}
+                placeholder="https://..."
+                helperText="Caso as APIs não tragam capa, podes definir manualmente."
+              />
+            </div>
           ) : null}
         </div>
 
@@ -127,7 +194,7 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
             onClick={() => {
               void addGame();
             }}
-            disabled={!selectedGame || !effectivePlatformId || libraryQuery.addLibraryItem.isPending}
+            disabled={(!selectedGame && !manualTitle.trim()) || !effectivePlatformId || libraryQuery.addLibraryItem.isPending}
           >
             Adicionar
           </Button>

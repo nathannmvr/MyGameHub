@@ -30,6 +30,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           aria-describedby={hasMessage ? messageId : undefined}
           className={cn(
             'peer h-12 w-full appearance-none rounded-[1.35rem] border bg-linear-to-b from-white/8 to-white/3 px-4 pr-11 text-sm text-text-primary shadow-[0_0_0_1px_rgba(255,255,255,0.02)_inset] outline-none transition duration-200 placeholder:text-text-muted focus:border-primary/35 focus:ring-2 focus:ring-primary/20 focus:ring-offset-0',
+            '[&>option]:text-white [&>option]:bg-slate-900 [&>optgroup]:text-white [&>optgroup]:bg-slate-900',
             error ? 'border-accent-red/70 focus:border-accent-red/80 focus:ring-accent-red/20' : 'border-white/12 hover:border-white/20',
             props.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
             className,

@@ -24,6 +24,8 @@ const envSchema = z.object({
   // ─── External APIs (optional — required only for Phases 6-7) ───
   RAWG_API_KEY: z.string().optional(),
   STEAM_API_KEY: z.string().optional(),
+  IGDB_CLIENT_ID: z.string().optional(),
+  IGDB_CLIENT_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
