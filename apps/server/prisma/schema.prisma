@@ -26,6 +26,7 @@ model User {
   library    UserGame[]
   syncJobs   SyncJob[]
   recommendationFeedback UserRecommendationFeedback[]
+  recommendationEvents RecommendationEvent[]
 
   @@map("users")
 }
@@ -49,6 +50,25 @@ model UserRecommendationFeedback {
   @@unique([userId, rawgId])
   @@index([userId, createdAt])
   @@map("user_recommendation_feedback")
+}
+
+// ─────────────────────────────────────────────
+// RECOMMENDATION_EVENTS (Telemetria para métricas offline)
+// ─────────────────────────────────────────────
+// Ref: design.md §6.3, spec.md RN-16
+model RecommendationEvent {
+  id              String                   @id @default(cuid())
+  userId          String                   @map("user_id")
+  rawgId          Int                      @map("rawg_id")
+  eventType       RecommendationEventType
+  experimentGroup String?                  @map("experiment_group")  // control | treatment
+  createdAt       DateTime                 @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([experimentGroup, createdAt])
+  @@map("recommendation_events")
 }
 
 // ─────────────────────────────────────────────
@@ -163,4 +183,12 @@ enum JobStatus {
   RUNNING
   COMPLETED
   FAILED
+}
+
+enum RecommendationEventType {
+  IMPRESSION          // Recomendação mostrada ao usuário
+  OPEN_DETAILS        // Usuário clicou para ver detalhes
+  ADD_TO_LIBRARY      // Usuário adicionou à biblioteca
+  DISMISS             // Usuário descartou (não interessante)
+  HIDE                // Usuário ocultou permanentemente
 }
