@@ -9,6 +9,9 @@ Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 - Sync Steam com fallback robusto, capa em alta resolução e classificação por recência + horas
 - Biblioteca com paginação navegável e prioridade de ordenação configurável
 - Busca global no header para pesquisar jogos já cadastrados na biblioteca
+- Descoberta com perfil de recomendação selecionável (`conservative` / `exploratory`)
+- Ação "Não recomendar" na página Descobrir com aprendizagem contínua no backend
+- Penalização de anti-preferências (jogos `DROPPED` e avaliações baixas) no ranking
 
 ## Stack
 
@@ -80,6 +83,7 @@ Se houver erro de porta ocupada na API (`EADDRINUSE: 3001`), finalize o processo
 
 - Health: `http://localhost:3001/api/health`
 - API v1: `http://localhost:3001/api/v1`
+- Discover feedback: `POST http://localhost:3001/api/v1/discover/feedback`
 - OpenAPI JSON: `http://localhost:3001/api/openapi.json`
 - Swagger UI: `http://localhost:3001/api/docs`
 - Frontend: `http://localhost:5173`
