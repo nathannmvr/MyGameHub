@@ -4,7 +4,7 @@ import { API_ROUTES } from '@gamehub/shared';
 export const queryKeys = {
   dashboard: ['dashboard'] as const,
   platforms: ['platforms'] as const,
-  library: (filters: Record<string, unknown>) => ['library', filters] as const,
+  library: (filters: object) => ['library', filters] as const,
   libraryItem: (id: string) => ['library', id] as const,
   gameSearch: (query: string, page: number) => ['games', 'search', query, page] as const,
   gameDetail: (rawgId: number) => ['games', rawgId] as const,
