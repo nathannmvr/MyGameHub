@@ -26,6 +26,9 @@ export type {
   LibraryItemExpanded,
 } from "./dto/api-responses";
 export type { SteamSyncRequestDTO, SyncJobDTO } from "./dto/steam";
+export { RecommendationReason, recommendationReasonLabels } from "./dto/recommendation-reason";
+export type { ScoreBreakdown } from "./dto/score-breakdown";
+export { RecommendationEventType } from "./dto/recommendation-event";
 
 // ─── Contracts ───
 export { API_PREFIX, API_ROUTES } from "./contracts/api-routes";
