@@ -1,4 +1,5 @@
 import type { LibraryItemExpanded } from '@gamehub/shared';
+import { PlatformIcon } from '../platforms/PlatformIcon';
 
 interface GameMetadataProps {
   item: LibraryItemExpanded;
@@ -18,7 +19,10 @@ export function GameMetadata({ item }: GameMetadataProps) {
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
           <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Plataforma local</p>
-          <p className="mt-2 text-sm text-text-primary">{item.platform.name}</p>
+          <p className="mt-2 inline-flex items-center gap-2 text-sm text-text-primary">
+            <PlatformIcon icon={item.platform.icon} className="h-4 w-4" />
+            {item.platform.name}
+          </p>
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 sm:col-span-2">
           <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Géneros</p>

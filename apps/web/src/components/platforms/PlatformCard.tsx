@@ -3,6 +3,7 @@ import type { Platform, UpdatePlatformDTO } from '@gamehub/shared';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import { PlatformIcon } from './PlatformIcon';
 
 interface PlatformCardProps {
   platform: Platform;
@@ -21,7 +22,10 @@ export function PlatformCard({ platform, onSave, onDelete }: PlatformCardProps) 
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">{platform.manufacturer}</p>
-          <h3 className="mt-2 text-xl font-semibold text-text-primary">{platform.name}</h3>
+          <h3 className="mt-2 flex items-center gap-2 text-xl font-semibold text-text-primary">
+            <PlatformIcon icon={platform.icon} className="h-5 w-5" />
+            {platform.name}
+          </h3>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isActive ? 'bg-accent-green/20 text-accent-green' : 'bg-white/5 text-text-secondary'}`}>
           {isActive ? 'Ativa' : 'Inativa'}

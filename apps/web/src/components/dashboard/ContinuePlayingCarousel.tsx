@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { LibraryItemExpanded } from '@gamehub/shared';
+import { PlatformIcon } from '../platforms/PlatformIcon';
 
 interface ContinuePlayingCarouselProps {
   items: LibraryItemExpanded[];
@@ -31,7 +32,10 @@ export function ContinuePlayingCarousel({ items }: ContinuePlayingCarouselProps)
               </div>
               <div className="space-y-3 p-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">{item.platform.name}</p>
+                  <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-text-secondary">
+                    <PlatformIcon icon={item.platform.icon} className="h-3.5 w-3.5" />
+                    {item.platform.name}
+                  </p>
                   <h3 className="mt-2 line-clamp-2 text-lg font-semibold text-text-primary">{item.game.title}</h3>
                 </div>
                 <p className="text-sm text-text-secondary">{item.game.developer ?? 'Developer não informado'}</p>
