@@ -7,6 +7,7 @@ import type {
   RecommendationFeedbackDTO,
   RecommendationProfile,
 } from "@gamehub/shared";
+import { RecommendationReason } from "@gamehub/shared";
 import { getPrismaClient } from "../config/database.js";
 import { CacheService } from "./cache.service.js";
 import { RawgService } from "./rawg.service.js";
@@ -421,6 +422,7 @@ export class RecommendationService {
         platforms: item.platforms,
         metacritic: item.metacritic,
         alreadyInLibrary: false,
+        reason: RecommendationReason.GENRE_AFFINITY, // TODO: Fase 16.2 will compute proper reason
       })),
       pagination: {
         totalItems: scored.length,
