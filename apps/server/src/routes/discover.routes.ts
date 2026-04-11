@@ -1,12 +1,12 @@
 // src/routes/discover.routes.ts
-// Discovery/recommendation routes — Stub (501 Not Implemented)
-// Implementation: Phase 8
+// Discovery/recommendation routes wired to controller with validation.
 
 import { Router } from "express";
+import { validate } from "../middleware/validate.js";
+import { DiscoverQuerySchema } from "../schemas/index.js";
+import { getRecommendations } from "../controllers/discover.controller.js";
 
 export const discoverRouter = Router();
 
 // GET /api/v1/discover — Get recommendations
-discoverRouter.get("/", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+discoverRouter.get("/", validate(DiscoverQuerySchema, "query"), getRecommendations);

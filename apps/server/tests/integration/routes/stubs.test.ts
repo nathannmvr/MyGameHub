@@ -12,17 +12,6 @@ import { createApp } from "../../../src/app.js";
 const app = createApp();
 
 describe("API Route Stubs — Remaining 501 Not Implemented", () => {
-  // ─── Discover ───
-  describe("Discover", () => {
-    it("GET /api/v1/discover → 501", async () => {
-      const res = await request(app).get("/api/v1/discover");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-  });
-
-
-
   // ─── Health Check (should still work) ───
   describe("Health Check", () => {
     it("GET /api/health → 200", async () => {
