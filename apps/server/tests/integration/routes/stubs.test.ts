@@ -12,21 +12,6 @@ import { createApp } from "../../../src/app.js";
 const app = createApp();
 
 describe("API Route Stubs — Remaining 501 Not Implemented", () => {
-  // ─── Games (RAWG Search) ───
-  describe("Games", () => {
-    it("GET /api/v1/games/search?q=zelda → 501", async () => {
-      const res = await request(app).get("/api/v1/games/search?q=zelda");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("GET /api/v1/games/:rawgId → 501", async () => {
-      const res = await request(app).get("/api/v1/games/3498");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-  });
-
   // ─── Steam ───
   describe("Steam", () => {
     it("POST /api/v1/steam/sync → 501", async () => {
