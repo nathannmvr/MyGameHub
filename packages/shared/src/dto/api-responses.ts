@@ -2,6 +2,8 @@
 // Standard API response wrappers and expanded DTOs
 
 import type { GameStatus } from "../enums";
+import type { RecommendationReason } from "./recommendation-reason.js";
+import type { ScoreBreakdown } from "./score-breakdown.js";
 
 export type RecommendationProfile = "conservative" | "exploratory";
 
@@ -49,6 +51,8 @@ export interface GameSearchResult {
   platforms: string[];
   metacritic: number | null;
   alreadyInLibrary: boolean; // Cross-referenced with local data
+  reason: RecommendationReason; // Why this game was recommended (v2 feature)
+  scoreBreakdown?: ScoreBreakdown; // Optional transparency on scoring
 }
 
 export interface DashboardStats {
