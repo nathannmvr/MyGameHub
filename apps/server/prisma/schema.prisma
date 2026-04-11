@@ -1,0 +1,144 @@
+// prisma/schema.prisma
+// Game Hub Pessoal — Database Schema
+// Ref: design.md §2.2
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+model User {
+  id         String   @id @default(cuid())
+  username   String   @unique
+  email      String?  @unique
+  steamId    String?  @unique @map("steam_id")
+  avatarUrl  String?  @map("avatar_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  platforms  Platform[]
+  library    UserGame[]
+  syncJobs   SyncJob[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// PLATFORMS (Hardware do usuário)
+// ─────────────────────────────────────────────
+model Platform {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  name         String                          // Ex: "PlayStation 5", "Nintendo Switch"
+  manufacturer String                          // Ex: "Sony", "Nintendo", "Valve"
+  icon         String   @default("gamepad")    // Nome do ícone ou URL
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryItems UserGame[]
+
+  @@unique([userId, name])                     // RN-02: Impede duplicatas por usuário
+  @@map("platforms")
+}
+
+// ─────────────────────────────────────────────
+// GAMES (Catálogo global de metadados)
+// ─────────────────────────────────────────────
+model Game {
+  id            String   @id @default(cuid())
+  rawgId        Int?     @unique @map("rawg_id")       // ID externo RAWG
+  rawgSlug      String?  @unique @map("rawg_slug")     // Slug RAWG para URLs
+  steamAppId    Int?     @unique @map("steam_appid")   // AppID Steam
+  title         String
+  coverUrl      String?  @map("cover_url")             // URL CDN (nunca blob local)
+  backgroundUrl String?  @map("background_url")        // Imagem de fundo
+  developer     String?
+  publisher     String?
+  releaseDate   DateTime? @map("release_date")
+  description   String?  @db.Text
+  genres        String[] @default([])                   // Array de gêneros
+  tags          String[] @default([])                   // Array de tags
+  platforms     String[] @default([])                   // Nomes de plataformas disponíveis (da RAWG)
+  metacritic    Int?                                    // Score Metacritic (da RAWG)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  libraryItems  UserGame[]
+
+  @@index([title])
+  @@map("games")
+}
+
+// ─────────────────────────────────────────────
+// USER_GAMES (Pivô: Biblioteca do Usuário)
+// ─────────────────────────────────────────────
+model UserGame {
+  id            String     @id @default(cuid())
+  userId        String     @map("user_id")
+  gameId        String     @map("game_id")
+  platformId    String     @map("platform_id")
+  status        GameStatus @default(BACKLOG)
+  rating        Int?                            // 1-10, nullable
+  playtimeHours Float?     @map("playtime_hours")
+  review        String?    @db.Text             // Notas pessoais
+  addedAt       DateTime   @default(now()) @map("added_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  platform Platform @relation(fields: [platformId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, gameId])                   // RN-04: Um jogo por usuário (uma entrada)
+  @@index([userId, status])
+  @@index([userId, platformId])
+  @@map("user_games")
+}
+
+// ─────────────────────────────────────────────
+// SYNC_JOBS (Rastreamento de jobs assíncronos)
+// ─────────────────────────────────────────────
+model SyncJob {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  type            SyncType  @default(STEAM)
+  status          JobStatus @default(PENDING)
+  totalItems      Int       @default(0) @map("total_items")
+  processedItems  Int       @default(0) @map("processed_items")
+  errorMessage    String?   @map("error_message") @db.Text
+  startedAt       DateTime  @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("sync_jobs")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+enum GameStatus {
+  WISHLIST
+  BACKLOG
+  PLAYING
+  PLAYED
+  DROPPED
+}
+
+enum SyncType {
+  STEAM
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
