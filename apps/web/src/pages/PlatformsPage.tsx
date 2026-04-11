@@ -1,11 +1,35 @@
 import { useState } from 'react';
 import type { CreatePlatformDTO } from '@gamehub/shared';
 import { usePlatforms } from '../hooks/use-platforms';
-import { Spinner } from '../components/ui/Spinner';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { PlatformCard } from '../components/platforms/PlatformCard';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ErrorState } from '../components/ui/ErrorState';
+import { Skeleton } from '../components/ui/Skeleton';
+
+function PlatformsSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <section className="space-y-4">
+        <Skeleton className="h-4 w-36 rounded-full" />
+        <Skeleton className="h-12 w-full max-w-2xl rounded-3xl" />
+        <Skeleton className="h-6 w-full max-w-2xl rounded-2xl" />
+      </section>
+      <section className="grid gap-4 rounded-3xl border border-white/10 bg-background-card/80 p-5 lg:grid-cols-[1fr_1fr_220px_auto]">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-20 rounded-2xl" />
+        ))}
+      </section>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-80 rounded-[1.75rem]" />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function PlatformsPage() {
   const platformsQuery = usePlatforms();
@@ -14,15 +38,11 @@ export function PlatformsPage() {
   const [icon, setIcon] = useState('gamepad');
 
   if (platformsQuery.isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Spinner label="A carregar plataformas" />
-      </div>
-    );
+    return <PlatformsSkeleton />;
   }
 
   if (platformsQuery.isError) {
-    return <section className="rounded-3xl border border-white/10 bg-background-card/80 p-8 text-text-secondary">Não foi possível carregar as plataformas.</section>;
+    return <ErrorState title="Não foi possível carregar as plataformas" description="Verifica a ligação com a API e tenta novamente." onRetry={() => void platformsQuery.refetch()} />;
   }
 
   const platforms = platformsQuery.data ?? [];
@@ -63,11 +83,18 @@ export function PlatformsPage() {
         </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        {platforms.map((platform) => (
-          <PlatformCard key={platform.id} platform={platform} onSave={(platformId, payload) => void platformsQuery.updatePlatform.mutateAsync({ id: platformId, payload })} onDelete={confirmDelete} />
-        ))}
-      </div>
+      {platforms.length > 0 ? (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {platforms.map((platform) => (
+            <PlatformCard key={platform.id} platform={platform} onSave={(platformId, payload) => void platformsQuery.updatePlatform.mutateAsync({ id: platformId, payload })} onDelete={confirmDelete} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          title="Ainda não há plataformas"
+          description="Preenche o formulário acima para criar a primeira plataforma e ativar filtros e recomendações."
+        />
+      )}
     </div>
   );
 }

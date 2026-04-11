@@ -22,9 +22,9 @@ export function StatsCards({ stats }: StatsCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => (
-        <article key={card.key} className="rounded-3xl border border-white/10 bg-background-card/80 p-5 shadow-lg shadow-black/10">
+        <article key={card.key} className="rounded-3xl border border-white/10 bg-background-card/80 p-5 shadow-lg shadow-black/10 transition duration-300 hover:-translate-y-0.5 hover:border-primary/20">
           <p className="text-sm text-text-secondary">{card.label}</p>
-          <p className={`mt-3 text-3xl font-bold ${card.accent}`}>{values[card.key]}</p>
+          <p className={`mt-3 font-display text-3xl font-bold ${card.accent}`}>{values[card.key]}</p>
         </article>
       ))}
     </div>

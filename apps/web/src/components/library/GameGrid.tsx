@@ -5,5 +5,5 @@ interface GameGridProps {
 }
 
 export function GameGrid({ children }: GameGridProps) {
-  return <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>;
+  return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>;
 }

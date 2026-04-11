@@ -39,11 +39,11 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       <button
         type="button"
         aria-label="Close modal overlay"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200"
         onClick={onClose}
       />
       <div

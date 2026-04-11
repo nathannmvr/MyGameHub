@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GameStatus, type LibraryItemExpanded, type Platform } from '@gamehub/shared';
 import { useLibrary } from '../../hooks/use-library';
 import { usePlatforms } from '../../hooks/use-platforms';
@@ -12,6 +13,7 @@ interface QuickEditFormProps {
 }
 
 export function QuickEditForm({ item }: QuickEditFormProps) {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<GameStatus>(item.status);
   const [platformId, setPlatformId] = useState(item.platform.id);
   const [rating, setRating] = useState(String(item.rating ?? ''));
@@ -31,6 +33,15 @@ export function QuickEditForm({ item }: QuickEditFormProps) {
         review: review || null,
       },
     });
+  };
+
+  const removeItem = async () => {
+    if (!window.confirm(`Remover ${item.game.title} da biblioteca?`)) {
+      return;
+    }
+
+    await libraryQuery.deleteLibraryItem.mutateAsync(item.id);
+    navigate('/library');
   };
 
   return (
@@ -67,7 +78,10 @@ export function QuickEditForm({ item }: QuickEditFormProps) {
         <Input label="Review" value={review} onChange={(event) => setReview(event.target.value)} placeholder="Notas pessoais" />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-3">
+        <Button variant="danger" onClick={() => void removeItem()} disabled={libraryQuery.deleteLibraryItem.isPending}>
+          Remover da biblioteca
+        </Button>
         <Button onClick={() => void submit()} disabled={libraryQuery.updateLibraryItem.isPending}>
           Guardar alterações
         </Button>

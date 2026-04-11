@@ -1,16 +1,22 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { GameStatus, type LibraryItemExpanded } from '@gamehub/shared';
 import { QuickEditForm } from '../../../src/components/game/QuickEditForm';
 
 const updateLibraryItem = vi.fn().mockResolvedValue(undefined);
+const deleteLibraryItem = vi.fn().mockResolvedValue(undefined);
 
 vi.mock('../../../src/hooks/use-library', () => ({
   useLibrary: () => ({
     updateLibraryItem: {
       mutateAsync: updateLibraryItem,
+      isPending: false,
+    },
+    deleteLibraryItem: {
+      mutateAsync: deleteLibraryItem,
       isPending: false,
     },
   }),
@@ -47,7 +53,11 @@ const item: LibraryItemExpanded = {
 
 describe('QuickEditForm', () => {
   it('renders with the current values prefilled', () => {
-    render(<QuickEditForm item={item} />);
+    render(
+      <MemoryRouter>
+        <QuickEditForm item={item} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByLabelText('Status')).toHaveValue(GameStatus.PLAYING);
     expect(screen.getByLabelText('Plataforma')).toHaveValue('platform-1');
@@ -56,7 +66,11 @@ describe('QuickEditForm', () => {
 
   it('changing status calls the mutation on save', async () => {
     const user = userEvent.setup();
-    render(<QuickEditForm item={item} />);
+    render(
+      <MemoryRouter>
+        <QuickEditForm item={item} />
+      </MemoryRouter>,
+    );
 
     await user.selectOptions(screen.getByLabelText('Status'), GameStatus.PLAYED);
     await user.click(screen.getByRole('button', { name: 'Guardar alterações' }));
@@ -69,7 +83,11 @@ describe('QuickEditForm', () => {
 
   it('star rating emits the selected value', async () => {
     const user = userEvent.setup();
-    render(<QuickEditForm item={item} />);
+    render(
+      <MemoryRouter>
+        <QuickEditForm item={item} />
+      </MemoryRouter>,
+    );
 
     await user.click(screen.getByRole('button', { name: '10 stars' }));
     await user.click(screen.getByRole('button', { name: 'Guardar alterações' }));

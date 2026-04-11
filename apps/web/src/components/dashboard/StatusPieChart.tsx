@@ -42,7 +42,7 @@ export function StatusPieChart({ stats }: StatusPieChartProps) {
     <section className="grid gap-5 rounded-3xl border border-white/10 bg-background-card/80 p-6 lg:grid-cols-[220px_1fr]">
       <div className="flex items-center justify-center">
         <div
-          className="flex h-52 w-52 items-center justify-center rounded-full border border-white/10 shadow-inner shadow-black/40"
+          className="flex h-52 w-52 items-center justify-center rounded-full border border-white/10 shadow-inner shadow-black/40 transition duration-300 hover:scale-[1.02]"
           style={{
             background: total > 0 ? `conic-gradient(${gradient})` : 'radial-gradient(circle, rgba(255,255,255,0.1), rgba(255,255,255,0.04))',
           }}

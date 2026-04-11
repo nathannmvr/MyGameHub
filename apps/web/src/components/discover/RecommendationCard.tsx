@@ -8,9 +8,11 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ recommendation, onAdd }: RecommendationCardProps) {
   return (
-    <article className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-background-card/80 shadow-lg shadow-black/20">
+    <article className="overflow-hidden rounded-[1.75rem] border border-white/10 bg-background-card/80 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-primary/20 hover:shadow-primary/10">
       <div className="aspect-[16/10] bg-background-hover">
-        {recommendation.coverUrl ? <img src={recommendation.coverUrl} alt={recommendation.title} className="h-full w-full object-cover" /> : null}
+        {recommendation.coverUrl ? (
+          <img src={recommendation.coverUrl} alt={recommendation.title} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
+        ) : null}
       </div>
       <div className="space-y-3 p-4">
         <div>

@@ -8,6 +8,8 @@ import {
   type PaginatedResponse,
   type UpdateLibraryItemDTO,
 } from '@gamehub/shared';
+import { pushToast } from '../components/feedback/toast-store';
+import { getErrorMessage } from '../lib/error';
 import { apiClient } from '../lib/api-client';
 import { queryKeys } from '../lib/query-client';
 
@@ -67,6 +69,18 @@ export function useLibrary(filters: LibraryFilters = {}) {
       await queryClient.invalidateQueries({ queryKey: ['library'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
       await queryClient.invalidateQueries({ queryKey: queryKeys.discover(1) });
+      pushToast({
+        variant: 'success',
+        title: 'Jogo adicionado',
+        description: 'A biblioteca foi atualizada com sucesso.',
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        variant: 'error',
+        title: 'Falha ao adicionar jogo',
+        description: getErrorMessage(error),
+      });
     },
   });
 
@@ -75,6 +89,18 @@ export function useLibrary(filters: LibraryFilters = {}) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['library'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      pushToast({
+        variant: 'success',
+        title: 'Jogo atualizado',
+        description: 'As alterações foram guardadas.',
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        variant: 'error',
+        title: 'Falha ao atualizar jogo',
+        description: getErrorMessage(error),
+      });
     },
   });
 
@@ -84,6 +110,18 @@ export function useLibrary(filters: LibraryFilters = {}) {
       await queryClient.invalidateQueries({ queryKey: ['library'] });
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
       await queryClient.invalidateQueries({ queryKey: queryKeys.discover(1) });
+      pushToast({
+        variant: 'success',
+        title: 'Jogo removido',
+        description: 'A biblioteca foi sincronizada novamente.',
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        variant: 'error',
+        title: 'Falha ao remover jogo',
+        description: getErrorMessage(error),
+      });
     },
   });
 

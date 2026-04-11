@@ -17,7 +17,7 @@ export function PlatformCard({ platform, onSave, onDelete }: PlatformCardProps) 
   const [isActive, setIsActive] = useState(platform.isActive);
 
   return (
-    <article className="space-y-4 rounded-[1.75rem] border border-white/10 bg-background-card/80 p-5 shadow-lg shadow-black/20">
+    <article className="space-y-4 rounded-[1.75rem] border border-white/10 bg-background-card/80 p-5 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-0.5 hover:border-primary/20">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-text-secondary">{platform.manufacturer}</p>
@@ -40,7 +40,7 @@ export function PlatformCard({ platform, onSave, onDelete }: PlatformCardProps) 
       </div>
 
       <label className="flex items-center gap-3 text-sm text-text-secondary">
-        <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
+        <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} className="h-4 w-4 rounded border-white/15 bg-white/5 text-primary focus:ring-primary/40" />
         Ativa para recomendações
       </label>
 

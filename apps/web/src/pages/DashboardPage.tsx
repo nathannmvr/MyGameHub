@@ -3,26 +3,64 @@ import { GameStatus } from '@gamehub/shared';
 import { ContinuePlayingCarousel } from '../components/dashboard/ContinuePlayingCarousel';
 import { StatsCards } from '../components/dashboard/StatsCards';
 import { StatusPieChart } from '../components/dashboard/StatusPieChart';
-import { Spinner } from '../components/ui/Spinner';
+import { ErrorState } from '../components/ui/ErrorState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { useDashboard } from '../hooks/use-dashboard';
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <section className="grid gap-8 lg:grid-cols-[1.3fr_0.9fr]">
+        <div className="space-y-6">
+          <Skeleton className="h-5 w-32 rounded-full" />
+          <div className="space-y-4">
+            <Skeleton className="h-14 w-full max-w-2xl rounded-3xl" />
+            <Skeleton className="h-6 w-full max-w-xl rounded-2xl" />
+            <Skeleton className="h-6 w-3/4 max-w-lg rounded-2xl" />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Skeleton className="h-12 w-40 rounded-full" />
+            <Skeleton className="h-12 w-44 rounded-full" />
+          </div>
+        </div>
+
+        <section className="rounded-3xl border border-white/10 bg-background-card/80 p-6">
+          <Skeleton className="h-4 w-28 rounded-full" />
+          <div className="mt-4 space-y-3">
+            <Skeleton className="h-14 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-2xl" />
+          </div>
+        </section>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-28 rounded-3xl" />
+        ))}
+      </div>
+
+      <div className="grid gap-5 rounded-3xl border border-white/10 bg-background-card/80 p-6 lg:grid-cols-[220px_1fr]">
+        <Skeleton className="mx-auto h-52 w-52 rounded-full" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function DashboardPage() {
   const dashboardQuery = useDashboard();
 
   if (dashboardQuery.isLoading) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Spinner label="A carregar dashboard" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (dashboardQuery.isError || !dashboardQuery.data) {
-    return (
-      <section className="rounded-3xl border border-white/10 bg-background-card/80 p-8 text-text-secondary">
-        Não foi possível carregar as estatísticas do dashboard.
-      </section>
-    );
+    return <ErrorState title="Não foi possível carregar o dashboard" description="Verifica a ligação à API e tenta novamente." onRetry={() => void dashboardQuery.refetch()} />;
   }
 
   const stats = dashboardQuery.data;

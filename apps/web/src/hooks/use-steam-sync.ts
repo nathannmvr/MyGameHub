@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   API_ROUTES,
@@ -7,6 +7,8 @@ import {
   type SyncJobDTO,
   type SteamSyncRequestDTO,
 } from '@gamehub/shared';
+import { pushToast } from '../components/feedback/toast-store';
+import { getErrorMessage } from '../lib/error';
 import { apiClient } from '../lib/api-client';
 import { queryKeys } from '../lib/query-client';
 
@@ -27,12 +29,25 @@ async function fetchSteamSyncStatus(jobId: string) {
 export function useSteamSync() {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
+  const lastToastStatus = useRef<JobStatus | null>(null);
 
   const startSteamSync = useMutation({
     mutationFn: startSteamSyncRequest,
     onSuccess: async (newJobId) => {
       setJobId(newJobId);
       await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      pushToast({
+        variant: 'info',
+        title: 'Sincronização iniciada',
+        description: 'A biblioteca Steam está a ser processada em segundo plano.',
+      });
+    },
+    onError: (error) => {
+      pushToast({
+        variant: 'error',
+        title: 'Falha ao iniciar sincronização',
+        description: getErrorMessage(error),
+      });
     },
   });
 
@@ -59,12 +74,28 @@ export function useSteamSync() {
 
   useEffect(() => {
     const status = syncJobQuery.data?.status;
+    const errorMessage = syncJobQuery.data?.errorMessage;
+
+    if (!status || status === lastToastStatus.current) {
+      return;
+    }
 
     if (status === JobStatus.COMPLETED || status === JobStatus.FAILED) {
       void queryClient.invalidateQueries({ queryKey: ['library'] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+
+      pushToast({
+        variant: status === JobStatus.COMPLETED ? 'success' : 'error',
+        title: status === JobStatus.COMPLETED ? 'Sincronização concluída' : 'Sincronização falhou',
+        description:
+          status === JobStatus.COMPLETED
+            ? 'A biblioteca Steam foi atualizada com sucesso.'
+            : errorMessage ?? 'O job terminou com erro.',
+      });
+
+      lastToastStatus.current = status;
     }
-  }, [queryClient, syncJobQuery.data?.status]);
+  }, [queryClient, syncJobQuery.data?.status, syncJobQuery.data?.errorMessage]);
 
   const resetSync = () => {
     setJobId(null);

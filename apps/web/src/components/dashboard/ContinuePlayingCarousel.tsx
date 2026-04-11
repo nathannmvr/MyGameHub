@@ -21,12 +21,12 @@ export function ContinuePlayingCarousel({ items }: ContinuePlayingCarouselProps)
           Nenhum jogo a correr no momento.
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
           {items.map((item) => (
-            <article key={item.id} className="min-w-[240px] max-w-[240px] shrink-0 overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 shadow-lg shadow-black/20">
+            <article key={item.id} className="min-w-[240px] max-w-[240px] shrink-0 snap-start overflow-hidden rounded-[1.75rem] border border-white/10 bg-white/5 shadow-lg shadow-black/20 transition duration-300 hover:-translate-y-1 hover:border-primary/20">
               <div className="aspect-[4/5] bg-background-hover">
                 {item.game.coverUrl ? (
-                  <img src={item.game.coverUrl} alt={item.game.title} className="h-full w-full object-cover" />
+                  <img src={item.game.coverUrl} alt={item.game.title} className="h-full w-full object-cover transition duration-500 hover:scale-105" />
                 ) : null}
               </div>
               <div className="space-y-3 p-4">

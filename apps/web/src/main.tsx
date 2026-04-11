@@ -5,13 +5,16 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import './styles/globals.css';
 import App from './App';
 import { queryClient } from './lib/query-client';
+import { ToastProvider } from './components/feedback/ToastProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

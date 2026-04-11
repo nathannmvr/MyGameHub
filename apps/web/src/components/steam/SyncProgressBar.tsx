@@ -22,14 +22,14 @@ export function SyncProgressBar({ syncJob }: SyncProgressBarProps) {
             {isCompleted ? 'Concluído' : isFailed ? 'Erro na sincronização' : 'A sincronizar'}
           </h2>
         </div>
-        <span className="text-sm text-text-secondary">
+        <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] ${isCompleted ? 'border-accent-green/20 bg-accent-green/10 text-accent-green' : isFailed ? 'border-accent-red/20 bg-accent-red/10 text-accent-red' : 'border-primary/20 bg-primary/10 text-primary-light'}`}>
           {syncJob.processedItems}/{syncJob.totalItems}
         </span>
       </div>
 
       <div className="h-3 overflow-hidden rounded-full bg-white/5">
         <div
-          className={`h-full rounded-full transition-all ${isFailed ? 'bg-accent-red' : isCompleted ? 'bg-accent-green' : 'bg-primary'}`}
+          className={`h-full rounded-full transition-all ${isFailed ? 'bg-accent-red' : isCompleted ? 'bg-accent-green' : 'bg-primary animate-pulse-soft'}`}
           style={{ width: `${progress}%` }}
         />
       </div>
