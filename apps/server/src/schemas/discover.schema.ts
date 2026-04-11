@@ -22,6 +22,7 @@ export const DiscoverQuerySchema = z.object({
     .max(40, "Page size must be at most 40")
     .default(20),
   profile: RecommendationProfileSchema.default("conservative"),
+  experimentGroup: z.enum(["control", "treatment"]).optional(), // A/B testing (16.6)
 });
 
 /**
