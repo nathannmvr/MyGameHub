@@ -2,6 +2,7 @@
 // Integration tests verifying remaining route stubs return 501 Not Implemented
 // Routes that have been implemented have their own dedicated test files:
 // - Platforms: platforms.routes.test.ts ✅
+// - Library: library.routes.test.ts ✅
 
 import { describe, it, expect } from "vitest";
 import request from "supertest";
@@ -10,38 +11,6 @@ import { createApp } from "../../../src/app.js";
 const app = createApp();
 
 describe("API Route Stubs — Remaining 501 Not Implemented", () => {
-
-  // ─── Library ───
-  describe("Library", () => {
-    it("GET /api/v1/library → 501", async () => {
-      const res = await request(app).get("/api/v1/library");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("POST /api/v1/library → 501", async () => {
-      const res = await request(app)
-        .post("/api/v1/library")
-        .send({ rawgId: 123, platformId: "abc", status: "BACKLOG" });
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("PUT /api/v1/library/:id → 501", async () => {
-      const res = await request(app)
-        .put("/api/v1/library/some-id")
-        .send({ status: "PLAYING" });
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("DELETE /api/v1/library/:id → 501", async () => {
-      const res = await request(app).delete("/api/v1/library/some-id");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-  });
-
   // ─── Games (RAWG Search) ───
   describe("Games", () => {
     it("GET /api/v1/games/search?q=zelda → 501", async () => {

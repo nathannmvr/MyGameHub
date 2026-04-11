@@ -1,27 +1,31 @@
 // src/routes/library.routes.ts
-// Library CRUD routes — Stub (501 Not Implemented)
-// Implementation: Phase 5
+// Library CRUD routes — wired to controller with Zod validation
+// Ref: design.md §4.2, spec.md §3.2
 
 import { Router } from "express";
+import { validate } from "../middleware/validate.js";
+import {
+  AddToLibrarySchema,
+  UpdateLibraryItemSchema,
+  LibraryQuerySchema,
+} from "../schemas/index.js";
+import {
+  listLibrary,
+  addToLibrary,
+  updateLibraryItem,
+  deleteLibraryItem,
+} from "../controllers/library.controller.js";
 
 export const libraryRouter = Router();
 
-// GET /api/v1/library — List library items (with filters)
-libraryRouter.get("/", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+// GET /api/v1/library — List library items (with filters, sorting, pagination)
+libraryRouter.get("/", validate(LibraryQuerySchema, "query"), listLibrary);
 
-// POST /api/v1/library — Add game to library
-libraryRouter.post("/", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+// POST /api/v1/library — Add game to library (with validation)
+libraryRouter.post("/", validate(AddToLibrarySchema), addToLibrary);
 
-// PUT /api/v1/library/:id — Update library item
-libraryRouter.put("/:id", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+// PUT /api/v1/library/:id — Update library item (with validation)
+libraryRouter.put("/:id", validate(UpdateLibraryItemSchema), updateLibraryItem);
 
 // DELETE /api/v1/library/:id — Remove game from library
-libraryRouter.delete("/:id", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+libraryRouter.delete("/:id", deleteLibraryItem);
