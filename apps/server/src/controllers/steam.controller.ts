@@ -6,6 +6,56 @@ import { getPrismaClient } from "../config/database.js";
 import { AppError } from "../middleware/error-handler.js";
 import { enqueueSteamSyncJob } from "../jobs/queue.js";
 import { SteamSyncStatusParamSchema } from "../schemas/index.js";
+import { SteamSyncWorkerService } from "../jobs/steam-sync.worker.js";
+
+let inlineSteamSyncWorker: SteamSyncWorkerService | null = null;
+
+function getInlineSteamSyncWorker() {
+  if (!inlineSteamSyncWorker) {
+    inlineSteamSyncWorker = new SteamSyncWorkerService();
+  }
+
+  return inlineSteamSyncWorker;
+}
+
+function isQueueUnavailable(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("redis") || message.includes("econnrefused") || message.includes("connect");
+}
+
+async function enqueueWithFallback(data: {
+  syncJobId: string;
+  userId: string;
+  steamId: string;
+  platformId: string;
+}) {
+  try {
+    await Promise.race([
+      enqueueSteamSyncJob(data),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Queue timeout while connecting to Redis"));
+        }, 2000);
+      }),
+    ]);
+    return;
+  } catch (error) {
+    if (!isQueueUnavailable(error)) {
+      throw error;
+    }
+  }
+
+  // Local/dev fallback: run sync without BullMQ when Redis is not reachable.
+  setTimeout(() => {
+    getInlineSteamSyncWorker().processSyncJob(data).catch(() => {
+      // The worker service already persists FAILED status in the sync job.
+    });
+  }, 0);
+}
 
 async function getCurrentUserId(): Promise<string> {
   const prisma = getPrismaClient();
@@ -58,7 +108,7 @@ export async function startSteamSync(
       },
     });
 
-    await enqueueSteamSyncJob({
+    await enqueueWithFallback({
       syncJobId: syncJob.id,
       userId,
       steamId,

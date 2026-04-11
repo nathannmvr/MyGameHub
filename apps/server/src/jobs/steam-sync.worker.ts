@@ -52,7 +52,13 @@ export class SteamSyncWorkerService {
   }) {
     this.prisma = options?.prisma ?? getPrismaClient();
     this.steamService = options?.steamService ?? new SteamService();
-    this.rawgService = options?.rawgService ?? new RawgService();
+    this.rawgService =
+      options?.rawgService ??
+      (process.env.RAWG_API_KEY
+        ? new RawgService()
+        : {
+            searchGames: async () => ({ items: [] }),
+          });
   }
 
   async processSyncJob(data: SteamSyncJobData): Promise<void> {

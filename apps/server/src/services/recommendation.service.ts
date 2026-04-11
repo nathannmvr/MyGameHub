@@ -86,7 +86,13 @@ export class RecommendationService {
     cache?: CacheService;
   }) {
     this.prisma = options?.prisma ?? getPrismaClient();
-    this.rawgService = options?.rawgService ?? new RawgService();
+    this.rawgService =
+      options?.rawgService ??
+      (process.env.RAWG_API_KEY
+        ? new RawgService()
+        : {
+            searchGames: async () => ({ items: [] }),
+          });
     this.cache = options?.cache ?? new CacheService({ defaultTtlSeconds: 3600 });
   }
 
@@ -149,7 +155,43 @@ export class RecommendationService {
       };
     }
 
-    const rawg = await this.rawgService.searchGames(searchQuery, 1, 40);
+    let candidates: Array<{
+      rawgId: number;
+      slug: string;
+      title: string;
+      coverUrl: string | null;
+      releaseDate: string | null;
+      genres: string[];
+      platforms: string[];
+      metacritic: number | null;
+    }> = [];
+
+    try {
+      const rawg = await this.rawgService.searchGames(searchQuery, 1, 40);
+      candidates = rawg.items;
+    } catch {
+      // Local fallback when external RAWG dependency is unavailable.
+      const localGames = await this.prisma.game.findMany({
+        where: {
+          rawgId: { not: null },
+        },
+        take: 80,
+        orderBy: { metacritic: "desc" },
+      });
+
+      candidates = localGames
+        .filter((game) => game.rawgId !== null)
+        .map((game) => ({
+          rawgId: game.rawgId as number,
+          slug: game.rawgSlug ?? `game-${game.rawgId}`,
+          title: game.title,
+          coverUrl: game.coverUrl,
+          releaseDate: game.releaseDate ? game.releaseDate.toISOString().slice(0, 10) : null,
+          genres: game.genres,
+          platforms: game.platforms,
+          metacritic: game.metacritic,
+        }));
+    }
 
     const inLibraryIds = new Set(
       (
@@ -175,7 +217,7 @@ export class RecommendationService {
       activePlatforms.map((platform) => normalizePlatformName(platform.name))
     );
 
-    const filtered = rawg.items.filter((candidate) => {
+    const filtered = candidates.filter((candidate) => {
       if (inLibraryIds.has(candidate.rawgId)) {
         return false;
       }

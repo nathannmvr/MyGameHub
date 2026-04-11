@@ -223,6 +223,21 @@ async function main() {
       gamePlatforms: ["PC"],
       metacritic: 90,
     },
+    {
+      rawgId: 19347,
+      rawgSlug: "hades",
+      title: "Hades",
+      coverUrl: "https://media.rawg.io/media/games/20c/20c8f16aabf9fbb4bb4ae1d28b5f8f6a.jpg",
+      backgroundUrl: "https://media.rawg.io/media/games/20c/20c8f16aabf9fbb4bb4ae1d28b5f8f6a.jpg",
+      developer: "Supergiant Games",
+      publisher: "Supergiant Games",
+      releaseDate: new Date("2020-09-17"),
+      description: "Rogue-like dungeon crawler where you defy the god of the dead.",
+      genres: ["Action", "Indie", "RPG"],
+      tags: ["Roguelike", "Fast-Paced", "Mythology"],
+      gamePlatforms: ["PC", "Nintendo Switch", "PlayStation 5", "Xbox Series X"],
+      metacritic: 93,
+    },
   ];
 
   const games: Record<string, Awaited<ReturnType<typeof prisma.game.create>>> = {};

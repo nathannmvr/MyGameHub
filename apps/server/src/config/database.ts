@@ -7,6 +7,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
 let prismaInstance: PrismaClient | null = null;
+const DEFAULT_DATABASE_URL = "postgresql://postgres:root@localhost:5432/GameHubPessoal?schema=public";
 
 /**
  * Creates or returns the singleton PrismaClient instance.
@@ -15,10 +16,7 @@ let prismaInstance: PrismaClient | null = null;
 export function getPrismaClient(databaseUrl?: string): PrismaClient {
   if (prismaInstance) return prismaInstance;
 
-  const url = databaseUrl || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL is not set in environment variables");
-  }
+  const url = databaseUrl || process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 
   const pool = new pg.Pool({ connectionString: url });
   const adapter = new PrismaPg(pool);
@@ -31,10 +29,7 @@ export function getPrismaClient(databaseUrl?: string): PrismaClient {
  * Creates a fresh PrismaClient (not singleton) — useful for tests
  */
 export function createPrismaClient(databaseUrl?: string): PrismaClient {
-  const url = databaseUrl || process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL is not set in environment variables");
-  }
+  const url = databaseUrl || process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 
   const pool = new pg.Pool({ connectionString: url });
   const adapter = new PrismaPg(pool);

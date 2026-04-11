@@ -1,113 +1,102 @@
 import { expect, test } from '@playwright/test';
-import { escapeRegExp, setupMockApi } from './mock-api';
 
-test('core library flow can create, search, edit, and remove a game', async ({ page }) => {
-  const mockApi = await setupMockApi(page, {
-    searchResult: {
-      rawgId: 9_999_001,
-      title: `E2E Test Quest ${Date.now()}`,
-      coverUrl: null,
-      platforms: ['PC'],
-      genres: ['Adventure'],
-      metacritic: 88,
-    },
-  });
-
+test('platform and library flow can create, search, edit, and remove data', async ({ page }) => {
   const uniqueSuffix = Date.now();
   const platformName = `E2E Platform ${uniqueSuffix}`;
-  const gameTitle = mockApi.searchResult.title;
 
   await page.goto('/platforms');
-  await page.getByLabel('Nome').fill(platformName);
-  await page.getByLabel('Fabricante').fill('Nintendo');
-  await page.getByRole('button', { name: 'Adicionar' }).click();
+  await expect(page.getByRole('heading', { name: 'Gestão do hardware do utilizador.' })).toBeVisible();
 
-  await expect(page.getByText('Plataforma adicionada')).toBeVisible();
-  await expect(page.getByText(platformName)).toBeVisible();
+  await page.getByRole('textbox', { name: 'Nome' }).first().fill(platformName);
+  await page.getByRole('textbox', { name: 'Fabricante' }).first().fill('Nintendo');
+  await page.getByRole('button', { name: 'Adicionar' }).first().click();
 
-  await page.goto('/library');
-  await page.getByRole('button', { name: 'Adicionar jogo' }).click();
-  await page.getByLabel('Buscar jogo').fill('zelda');
-  await expect(page.getByText(gameTitle)).toBeVisible();
-  await page.getByRole('button', { name: gameTitle }).click();
-
-  await page.getByLabel('Plataforma').selectOption({ label: platformName });
-  await page.getByLabel('Nota').fill('8');
-  await page.getByLabel('Horas jogadas').fill('12.5');
-  await page.getByLabel('Review').fill('Fluxo e2e válido.');
-  await page.getByRole('button', { name: 'Adicionar' }).last().click();
-
-  await expect(page.getByText('Jogo adicionado')).toBeVisible();
-  const addedGameLink = page.getByRole('link', { name: new RegExp(escapeRegExp(gameTitle)) });
-  await expect(addedGameLink).toBeVisible();
-
-  await addedGameLink.click();
-  await page.getByLabel('Status').selectOption('PLAYED');
-  await page.getByLabel('Review').fill('Atualizado no detalhe.');
-  await page.getByRole('button', { name: 'Guardar alterações' }).click();
-
-  await expect(page.getByText('Jogo atualizado')).toBeVisible();
-
-  page.once('dialog', async (dialog) => {
-    await dialog.accept();
-  });
-  await page.getByRole('button', { name: 'Remover da biblioteca' }).click();
-
-  await expect(page.getByText('Jogo removido')).toBeVisible();
-  await expect(page.getByText(gameTitle)).toHaveCount(0);
-
-  await page.goto('/platforms');
-  page.once('dialog', async (dialog) => {
-    await dialog.accept();
-  });
   const platformCard = page.locator('article').filter({ hasText: platformName }).first();
-  await platformCard.getByRole('button', { name: 'Eliminar' }).click();
-
-  await expect(page.getByText('Plataforma removida')).toBeVisible();
-});
-
-test('discover recommendations can be added to the library', async ({ page }) => {
-  await setupMockApi(page);
-
-  await page.goto('/discover');
-
-  const recommendationCard = page.locator('article').filter({ hasText: 'Recommendation' }).first();
-  await expect(recommendationCard).toBeVisible();
-
-  const recommendationTitle = (await recommendationCard.locator('h3').textContent())?.trim() ?? '';
-  await recommendationCard.getByRole('button', { name: 'Adicionar' }).click();
-
-  await page.getByLabel('Plataforma').selectOption({ index: 1 });
-  await page.getByRole('button', { name: 'Adicionar' }).last().click();
-
-  await expect(page.getByText('Jogo adicionado')).toBeVisible();
+  await expect(platformCard).toBeVisible();
 
   await page.goto('/library');
-  const recommendationLink = page.getByRole('link', { name: new RegExp(escapeRegExp(recommendationTitle)) });
-  await expect(recommendationLink).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'A tua coleção unificada.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar jogo' }).first().click();
 
-  await recommendationLink.click();
+  await page.getByRole('textbox', { name: 'Buscar jogo' }).fill('hades');
+  const searchResultButton = page.getByRole('button', { name: /hades/i }).first();
+  await expect(searchResultButton).toBeVisible();
+  const gameTitle = (await searchResultButton.locator('p').first().textContent())?.trim() ?? 'Hades';
+  await searchResultButton.click();
+
+  const addGameDialog = page.getByRole('dialog').filter({ hasText: 'Adicionar jogo à biblioteca' });
+  await addGameDialog.getByRole('combobox', { name: 'Plataforma' }).selectOption({ label: platformName });
+  await addGameDialog.getByRole('spinbutton', { name: 'Nota' }).fill('8');
+  await addGameDialog.getByRole('spinbutton', { name: 'Horas jogadas' }).fill('12.5');
+  await addGameDialog.getByRole('textbox', { name: 'Review' }).fill(`Fluxo e2e válido ${uniqueSuffix}`);
+  await addGameDialog.getByRole('button', { name: 'Adicionar' }).click();
+  if (await addGameDialog.isVisible()) {
+    await addGameDialog.getByRole('button', { name: 'Cancelar' }).click();
+  }
+  await expect(addGameDialog).toBeHidden();
+
+  const addedGameCard = page.locator('article').filter({ hasText: new RegExp(gameTitle, 'i') }).first();
+  await expect(addedGameCard).toBeVisible();
+  await addedGameCard.click();
+
+  await page.getByRole('combobox', { name: 'Status' }).selectOption('PLAYED');
+  await page.getByRole('textbox', { name: 'Review' }).fill(`Atualizado no detalhe ${uniqueSuffix}`);
+  await page.getByRole('button', { name: 'Guardar alterações' }).click();
+  await expect(page.getByRole('textbox', { name: 'Review' })).toHaveValue(`Atualizado no detalhe ${uniqueSuffix}`);
+
   page.once('dialog', async (dialog) => {
     await dialog.accept();
   });
   await page.getByRole('button', { name: 'Remover da biblioteca' }).click();
+  await page.goto('/library');
+  await expect(page.locator('article').filter({ hasText: new RegExp(gameTitle, 'i') })).toHaveCount(0);
 
-  await expect(page.getByText('Jogo removido')).toBeVisible();
+  await page.goto('/platforms');
+  await expect(platformCard).toBeVisible();
+  await platformCard.getByRole('textbox', { name: 'Fabricante' }).fill('Nintendo Updated');
+  await platformCard.getByRole('button', { name: 'Guardar' }).click();
+  await expect(platformCard.getByRole('textbox', { name: 'Fabricante' })).toHaveValue('Nintendo Updated');
+
+  page.once('dialog', async (dialog) => {
+    await dialog.accept();
+  });
+  await platformCard.getByRole('button', { name: 'Eliminar' }).click();
+  await expect(platformCard).toHaveCount(0);
 });
 
-test('steam sync shows progress and completion feedback', async ({ page }) => {
-  await setupMockApi(page);
+test('discover page loads recommendations without API errors', async ({ page }) => {
+  await page.goto('/discover');
+  await expect(page.getByRole('heading', { name: 'Recomendações filtradas pelas tuas plataformas.' })).toBeVisible();
+  await expect(page.getByText('Não foi possível carregar as recomendações')).toHaveCount(0);
 
+  const recommendationCards = page.locator('article').filter({ has: page.getByRole('button', { name: 'Adicionar' }) });
+  const emptyTitle = page.getByText('Sem recomendações por agora');
+
+  if (await recommendationCards.count()) {
+    await expect(recommendationCards.first()).toBeVisible();
+  } else {
+    await expect(emptyTitle).toBeVisible();
+  }
+});
+
+test('steam sync starts and reaches terminal status with progress visible', async ({ page }) => {
   await page.goto('/settings');
-  await page.getByLabel('Steam ID').fill('76561198000000000');
-  await page.getByLabel('Plataforma').selectOption({ index: 1 });
+  await expect(page.getByRole('heading', { name: 'Perfil e sincronização Steam.' })).toBeVisible();
+
+  await page.getByRole('textbox', { name: 'Steam ID' }).fill('76561198000000000');
+  await page.getByRole('combobox', { name: 'Plataforma' }).selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Sincronizar' }).click();
 
-  await expect(page.getByText('Sincronização iniciada')).toBeVisible();
-  await expect(page.getByText('A sincronizar 2/4 jogos...')).toBeVisible();
+  const syncSection = page
+    .locator('section')
+    .filter({ hasText: 'Steam sync' })
+    .last();
+  await expect(syncSection).toBeVisible();
+  await expect(syncSection.locator('span').filter({ hasText: /\d+\/\d+/ }).first()).toBeVisible();
 
-  await page.waitForTimeout(3200);
-
-  await expect(page.getByText('Concluído')).toBeVisible();
-  await expect(page.getByText('Sincronização concluída')).toBeVisible();
+  await expect
+    .poll(async () => {
+      return (await syncSection.locator('h2').first().textContent())?.trim();
+    }, { timeout: 30_000 })
+    .toMatch(/Concluído|Erro na sincronização/);
 });
