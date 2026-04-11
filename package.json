@@ -1,0 +1,23 @@
+{
+  "name": "gamehub",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Game Hub Pessoal — Agregador de bibliotecas de jogos",
+  "author": "Nathan <nathannmvr@gmail.com>",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @gamehub/server --filter @gamehub/web dev",
+    "build": "pnpm --filter @gamehub/shared build && pnpm --filter @gamehub/server build && pnpm --filter @gamehub/web build",
+    "test": "pnpm -r run test",
+    "test:watch": "pnpm -r run test:watch",
+    "lint": "pnpm -r run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "prettier": "^3.4.0"
+  }
+}
