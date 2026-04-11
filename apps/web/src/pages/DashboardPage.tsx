@@ -2,8 +2,7 @@ import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl items-center px-6 py-16 lg:px-10">
-      <section className="grid w-full gap-8 lg:grid-cols-[1.3fr_0.9fr]">
+    <section className="grid w-full gap-8 lg:grid-cols-[1.3fr_0.9fr]">
         <div className="space-y-6 animate-slide-up">
           <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-text-secondary">
             Fase 9 - Base do Frontend
@@ -42,7 +41,6 @@ export function DashboardPage() {
             <p>Axios pronto para consumir /api/v1 com base configurável via VITE_API_URL.</p>
           </div>
         </aside>
-      </section>
-    </main>
+    </section>
   );
 }
