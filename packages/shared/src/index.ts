@@ -19,6 +19,8 @@ export type {
   ApiResponse,
   ApiError,
   PaginatedResponse,
+  RecommendationFeedbackDTO,
+  RecommendationProfile,
   GameSearchResult,
   DashboardStats,
   LibraryItemExpanded,

@@ -18,6 +18,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function cleanDatabase() {
+  await prisma.userRecommendationFeedback.deleteMany();
   await prisma.syncJob.deleteMany();
   await prisma.userGame.deleteMany();
   await prisma.game.deleteMany();
@@ -102,7 +103,7 @@ describe("RecommendationService", () => {
       cache: new CacheService({ defaultTtlSeconds: 3600 }),
     });
 
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(rawgService.searchGames).toHaveBeenCalledTimes(1);
     expect(result.data).toHaveLength(1);
@@ -151,7 +152,7 @@ describe("RecommendationService", () => {
     };
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(rawgService.searchGames).toHaveBeenCalledTimes(1);
     expect(result.data.map((item) => item.rawgId)).toEqual([902]);
@@ -193,7 +194,7 @@ describe("RecommendationService", () => {
     };
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
-    await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     const recommendationQuery = rawgService.searchGames.mock.calls[0]?.[0] as string;
     const strategyIndex = recommendationQuery.indexOf("strategy");
@@ -262,7 +263,7 @@ describe("RecommendationService", () => {
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
 
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(result.data.map((g) => g.rawgId)).toEqual([21]);
   });
@@ -313,9 +314,224 @@ describe("RecommendationService", () => {
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
 
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(result.data.map((g) => g.rawgId)).toEqual([31]);
+  });
+
+  it("does not recommend unrelated high-metacritic games without genre overlap", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const played = await prisma.game.create({
+      data: {
+        rawgId: 70,
+        title: "Racing Base",
+        genres: ["Racing"],
+        tags: ["Cars"],
+      },
+    });
+
+    await prisma.userGame.create({
+      data: { userId: user.id, gameId: played.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 71,
+            slug: "unrelated-hit",
+            title: "Unrelated Hit",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Puzzle"],
+            platforms: ["PC"],
+            metacritic: 97,
+          },
+          {
+            rawgId: 72,
+            slug: "related-pick",
+            title: "Related Pick",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Racing"],
+            platforms: ["PC"],
+            metacritic: 72,
+          },
+        ],
+        pagination: { totalItems: 2, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+
+    expect(result.data.map((g) => g.rawgId)).toEqual([72]);
+  });
+
+  it("penalizes dropped and low-rated preferences", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const likedBase = await prisma.game.create({
+      data: {
+        rawgId: 701,
+        title: "Liked RPG",
+        genres: ["RPG"],
+        tags: ["Fantasy"],
+      },
+    });
+
+    const droppedBase = await prisma.game.create({
+      data: {
+        rawgId: 702,
+        title: "Dropped Horror",
+        genres: ["Horror"],
+        tags: ["Jump Scare"],
+      },
+    });
+
+    await prisma.userGame.createMany({
+      data: [
+        { userId: user.id, gameId: likedBase.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+        { userId: user.id, gameId: droppedBase.id, platformId: pc.id, status: "DROPPED", rating: 3 },
+      ],
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 703,
+            slug: "horror-candidate",
+            title: "Horror Candidate",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Horror", "RPG"],
+            platforms: ["PC"],
+            metacritic: 92,
+          },
+          {
+            rawgId: 704,
+            slug: "rpg-candidate",
+            title: "RPG Candidate",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["RPG"],
+            platforms: ["PC"],
+            metacritic: 75,
+          },
+        ],
+        pagination: { totalItems: 2, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+
+    expect(result.data.map((item) => item.rawgId)).toEqual([704]);
+  });
+
+  it("stores feedback and excludes dismissed game from next recommendations", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const played = await prisma.game.create({
+      data: {
+        rawgId: 801,
+        title: "Action Base",
+        genres: ["Action"],
+        tags: ["Arcade"],
+      },
+    });
+
+    await prisma.userGame.create({
+      data: { userId: user.id, gameId: played.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 802,
+            slug: "dismiss-me",
+            title: "Dismiss Me",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action"],
+            platforms: ["PC"],
+            metacritic: 84,
+          },
+          {
+            rawgId: 803,
+            slug: "keep-me",
+            title: "Keep Me",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action"],
+            platforms: ["PC"],
+            metacritic: 81,
+          },
+        ],
+        pagination: { totalItems: 2, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+
+    const first = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    expect(first.data.map((item) => item.rawgId)).toEqual([802, 803]);
+
+    await service.submitFeedback(user.id, {
+      rawgId: 802,
+      title: "Dismiss Me",
+      genres: ["Action", "Arcade"],
+      reason: "Nao curto esse estilo",
+    });
+
+    const second = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    expect(second.data.map((item) => item.rawgId)).toEqual([803]);
+  });
+
+  it("allows broader discovery on exploratory profile", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const base = await prisma.game.create({
+      data: {
+        rawgId: 9010,
+        title: "Action Base",
+        genres: ["Action", "Shooter"],
+        tags: ["Arena"],
+      },
+    });
+
+    await prisma.userGame.create({
+      data: { userId: user.id, gameId: base.id, platformId: pc.id, status: "PLAYED", rating: 8 },
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 9011,
+            slug: "single-overlap",
+            title: "Single Overlap",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action", "Puzzle"],
+            platforms: ["PC"],
+            metacritic: 70,
+          },
+        ],
+        pagination: { totalItems: 1, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    const conservative = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    const exploratory = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "exploratory" });
+
+    expect(conservative.data).toHaveLength(0);
+    expect(exploratory.data.map((item) => item.rawgId)).toEqual([9011]);
   });
 
   it("uses cache on second call", async () => {
@@ -353,8 +569,8 @@ describe("RecommendationService", () => {
       cache: new CacheService({ defaultTtlSeconds: 3600 }),
     });
 
-    const first = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
-    const second = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const first = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    const second = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(first.data).toEqual(second.data);
     expect(rawgService.searchGames).toHaveBeenCalledTimes(1);
@@ -377,7 +593,7 @@ describe("RecommendationService", () => {
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
 
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
     expect(result.data).toEqual([]);
     expect(result.pagination.totalItems).toBe(0);
@@ -418,7 +634,7 @@ describe("RecommendationService", () => {
 
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
 
-    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
     expect(result.data.map((g) => g.rawgId)).toEqual([61]);
   });
 });

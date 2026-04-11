@@ -25,8 +25,30 @@ model User {
   platforms  Platform[]
   library    UserGame[]
   syncJobs   SyncJob[]
+  recommendationFeedback UserRecommendationFeedback[]
 
   @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// USER_RECOMMENDATION_FEEDBACK (Aprendizado contínuo)
+// ─────────────────────────────────────────────
+model UserRecommendationFeedback {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  rawgId    Int      @map("rawg_id")
+  title     String?
+  genres    String[] @default([])
+  tags      String[] @default([])
+  reason    String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rawgId])
+  @@index([userId, createdAt])
+  @@map("user_recommendation_feedback")
 }
 
 // ─────────────────────────────────────────────

@@ -38,5 +38,7 @@ export {
 // ─── Discover ───
 export {
   DiscoverQuerySchema,
+  RecommendationFeedbackSchema,
   type DiscoverQueryInput,
+  type RecommendationFeedbackInput,
 } from "./discover.schema.js";

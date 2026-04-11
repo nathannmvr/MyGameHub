@@ -3,6 +3,16 @@
 
 import type { GameStatus } from "../enums";
 
+export type RecommendationProfile = "conservative" | "exploratory";
+
+export interface RecommendationFeedbackDTO {
+  rawgId: number;
+  title?: string;
+  genres?: string[];
+  tags?: string[];
+  reason?: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;

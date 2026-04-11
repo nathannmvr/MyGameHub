@@ -28,6 +28,7 @@ const prisma = new PrismaClient({ adapter });
 const app = createApp();
 
 async function cleanDatabase() {
+  await prisma.userRecommendationFeedback.deleteMany();
   await prisma.syncJob.deleteMany();
   await prisma.userGame.deleteMany();
   await prisma.game.deleteMany();
@@ -151,5 +152,25 @@ describe("Discover Routes Integration", () => {
     const rawgIds = res.body.data.data.map((g: { rawgId: number }) => g.rawgId);
 
     expect(rawgIds).toEqual([2001]);
+  });
+
+  it("POST /api/v1/discover/feedback stores dismissal and removes it from recommendations", async () => {
+    const dismissRes = await request(app)
+      .post("/api/v1/discover/feedback")
+      .send({
+        rawgId: 2001,
+        title: "PC Candidate",
+        genres: ["Action"],
+        reason: "Nao tenho interesse",
+      });
+
+    expect(dismissRes.status).toBe(201);
+    expect(dismissRes.body.success).toBe(true);
+    expect(dismissRes.body.data.dismissed).toBe(true);
+
+    const discoverRes = await request(app).get("/api/v1/discover?page=1&pageSize=20");
+    const rawgIds = discoverRes.body.data.data.map((g: { rawgId: number }) => g.rawgId);
+
+    expect(rawgIds).not.toContain(2001);
   });
 });

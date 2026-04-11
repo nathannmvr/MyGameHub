@@ -2,7 +2,11 @@
 // Recommendation engine with exclusion and strict platform filtering.
 
 import type { PrismaClient } from "@prisma/client";
-import type { GameSearchResult } from "@gamehub/shared";
+import type {
+  GameSearchResult,
+  RecommendationFeedbackDTO,
+  RecommendationProfile,
+} from "@gamehub/shared";
 import { getPrismaClient } from "../config/database.js";
 import { CacheService } from "./cache.service.js";
 import { RawgService } from "./rawg.service.js";
@@ -25,6 +29,7 @@ interface RawgSearchLike {
 interface RecommendationQuery {
   page: number;
   pageSize: number;
+  profile: RecommendationProfile;
 }
 
 interface RecommendationResult {
@@ -48,6 +53,15 @@ const PLATFORM_ALIASES: Record<string, string[]> = {
   "linux": ["linux"],
   "ios": ["ios"],
   "android": ["android"],
+};
+
+// Popular genres are useful but weak signals. Deboost them to avoid generic recommendations.
+const GENERIC_GENRE_MULTIPLIER: Record<string, number> = {
+  action: 0.45,
+  adventure: 0.55,
+  indie: 0.6,
+  shooter: 0.7,
+  fighting: 0.75,
 };
 
 function normalizePlatformName(name: string): string {
@@ -79,7 +93,11 @@ function addWeightedValues(counter: Map<string, number>, values: string[], weigh
 
 function getTopWeightedValues(counter: Map<string, number>, maxItems = 5): string[] {
   return [...counter.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => {
+      const adjustedA = a[1] * (GENERIC_GENRE_MULTIPLIER[a[0]] ?? 1);
+      const adjustedB = b[1] * (GENERIC_GENRE_MULTIPLIER[b[0]] ?? 1);
+      return adjustedB - adjustedA;
+    })
     .slice(0, maxItems)
     .map(([value]) => value);
 }
@@ -120,6 +138,37 @@ function getProfileWeight(item: {
   return weight;
 }
 
+function getPenaltyWeight(item: {
+  status: "WISHLIST" | "BACKLOG" | "PLAYING" | "PLAYED" | "DROPPED";
+  rating: number | null;
+  updatedAt: Date;
+}, now = new Date()): number {
+  let penalty = 0;
+
+  if (item.status === "DROPPED") {
+    penalty += 7;
+  }
+
+  if (item.rating !== null) {
+    if (item.rating <= 3) {
+      penalty += 5;
+    } else if (item.rating <= 5) {
+      penalty += 3;
+    } else if (item.rating <= 6) {
+      penalty += 1.5;
+    }
+  }
+
+  const recentCutoff = new Date(now);
+  recentCutoff.setMonth(recentCutoff.getMonth() - 3);
+
+  if (penalty > 0 && item.updatedAt >= recentCutoff) {
+    penalty += 1;
+  }
+
+  return penalty;
+}
+
 export class RecommendationService {
   private readonly prisma: PrismaClient;
   private readonly rawgService: RawgSearchLike;
@@ -142,7 +191,7 @@ export class RecommendationService {
   }
 
   async getRecommendations(userId: string, query: RecommendationQuery): Promise<RecommendationResult> {
-    const cacheKey = `rawg:discover:${userId}:${query.page}:${query.pageSize}`;
+    const cacheKey = `rawg:discover:v3:${userId}:${query.profile}:${query.page}:${query.pageSize}`;
     const cached = await this.cache.get<RecommendationResult>(cacheKey);
     if (cached) {
       return cached;
@@ -151,7 +200,7 @@ export class RecommendationService {
     const sample = await this.prisma.userGame.findMany({
       where: {
         userId,
-        status: { in: ["PLAYING", "PLAYED", "WISHLIST"] },
+        status: { in: ["PLAYING", "PLAYED", "WISHLIST", "DROPPED"] },
       },
       select: {
         status: true,
@@ -180,15 +229,38 @@ export class RecommendationService {
 
     const genreWeights = new Map<string, number>();
     const tagWeights = new Map<string, number>();
+    const dislikedGenreWeights = new Map<string, number>();
+    const dislikedTagWeights = new Map<string, number>();
+
+    const feedback = await this.prisma.userRecommendationFeedback.findMany({
+      where: { userId },
+      select: {
+        rawgId: true,
+        genres: true,
+        tags: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
 
     for (const item of sample) {
       const weight = getProfileWeight(item);
-      if (weight <= 0) {
-        continue;
+
+      if (weight > 0) {
+        addWeightedValues(genreWeights, item.game.genres, weight);
+        addWeightedValues(tagWeights, item.game.tags, weight * 0.7);
       }
 
-      addWeightedValues(genreWeights, item.game.genres, weight);
-      addWeightedValues(tagWeights, item.game.tags, weight * 0.7);
+      const penaltyWeight = getPenaltyWeight(item);
+      if (penaltyWeight > 0) {
+        addWeightedValues(dislikedGenreWeights, item.game.genres, penaltyWeight);
+        addWeightedValues(dislikedTagWeights, item.game.tags, penaltyWeight * 0.8);
+      }
+    }
+
+    for (const item of feedback) {
+      addWeightedValues(dislikedGenreWeights, item.genres, 4);
+      addWeightedValues(dislikedTagWeights, item.tags, 2.5);
     }
 
     const topGenres = getTopWeightedValues(genreWeights, 6);
@@ -260,6 +332,8 @@ export class RecommendationService {
         .filter((id): id is number => id !== null)
     );
 
+      const dismissedIds = new Set(feedback.map((item) => item.rawgId));
+
     const activePlatforms = await this.prisma.platform.findMany({
       where: { userId, isActive: true },
       select: { name: true },
@@ -274,23 +348,62 @@ export class RecommendationService {
         return false;
       }
 
+      if (dismissedIds.has(candidate.rawgId)) {
+        return false;
+      }
+
       const normalizedCandidatePlatforms = candidate.platforms.map((p) => normalizePlatformName(p));
       return normalizedCandidatePlatforms.some((platform) => normalizedUserPlatforms.has(platform));
     });
 
+    const minSharedGenres = 1;
+    const minFinalScore = query.profile === "exploratory" ? 0.4 : 1;
+    const minOverlapRatio = query.profile === "exploratory" ? 0.3 : 0.6;
+
     const scored = filtered
       .map((candidate) => {
-        const genreScore = candidate.genres.reduce((total, genre) => {
-          return total + (genreWeights.get(normalizePreference(genre)) ?? 0);
-        }, 0);
+        const normalizedGenres = candidate.genres.map((genre) => normalizePreference(genre));
+        const overlappedWeights = normalizedGenres
+          .map((genre) => genreWeights.get(genre) ?? 0)
+          .filter((value) => value > 0);
 
-        const metacriticBonus = candidate.metacritic ? candidate.metacritic / 200 : 0;
+        // Hard relevance gate: recommendations must overlap with user preference genres.
+        if (overlappedWeights.length < minSharedGenres) {
+          return null;
+        }
+
+        const overlapTotal = overlappedWeights.reduce((sum, value) => sum + value, 0);
+        const specificityScore = overlapTotal / Math.max(normalizedGenres.length, 1);
+        const overlapRatio = overlappedWeights.length / Math.max(normalizedGenres.length, 1);
+        const dislikedGenrePenalty = normalizedGenres.reduce((total, genre) => {
+          return total + (dislikedGenreWeights.get(genre) ?? 0);
+        }, 0);
+        const hasStrongDislikedGenre = normalizedGenres.some(
+          (genre) => (dislikedGenreWeights.get(genre) ?? 0) >= 8
+        );
+
+        if (overlapRatio < minOverlapRatio) {
+          return null;
+        }
+
+        if (query.profile === "conservative" && hasStrongDislikedGenre) {
+          return null;
+        }
+
+        // Metacritic acts only as a tie-breaker, never as the main ranking signal.
+        const metacriticBonus = candidate.metacritic ? candidate.metacritic / 1000 : 0;
+        const score = overlapTotal + specificityScore * 2 + metacriticBonus - dislikedGenrePenalty * 1.25;
+
+        if (score < minFinalScore) {
+          return null;
+        }
 
         return {
           candidate,
-          score: genreScore + metacriticBonus,
+          score,
         };
       })
+      .filter((entry): entry is { candidate: (typeof candidates)[number]; score: number } => entry !== null)
       .sort((a, b) => b.score - a.score)
       .map((entry) => entry.candidate);
 
@@ -319,5 +432,32 @@ export class RecommendationService {
 
     await this.cache.set(cacheKey, result, 60 * 60);
     return result;
+  }
+
+  async submitFeedback(userId: string, payload: RecommendationFeedbackDTO): Promise<void> {
+    await this.prisma.userRecommendationFeedback.upsert({
+      where: {
+        userId_rawgId: {
+          userId,
+          rawgId: payload.rawgId,
+        },
+      },
+      create: {
+        userId,
+        rawgId: payload.rawgId,
+        title: payload.title,
+        genres: payload.genres ?? [],
+        tags: payload.tags ?? [],
+        reason: payload.reason,
+      },
+      update: {
+        title: payload.title,
+        genres: payload.genres ?? [],
+        tags: payload.tags ?? [],
+        reason: payload.reason,
+      },
+    });
+
+    await this.cache.flush(`rawg:discover:v3:${userId}:*`);
   }
 }

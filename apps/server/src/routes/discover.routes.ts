@@ -3,10 +3,13 @@
 
 import { Router } from "express";
 import { validate } from "../middleware/validate.js";
-import { DiscoverQuerySchema } from "../schemas/index.js";
-import { getRecommendations } from "../controllers/discover.controller.js";
+import { DiscoverQuerySchema, RecommendationFeedbackSchema } from "../schemas/index.js";
+import { getRecommendations, submitRecommendationFeedback } from "../controllers/discover.controller.js";
 
 export const discoverRouter: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/discover — Get recommendations
 discoverRouter.get("/", validate(DiscoverQuerySchema, "query"), getRecommendations);
+
+// POST /api/v1/discover/feedback — mark recommendation as not relevant
+discoverRouter.post("/feedback", validate(RecommendationFeedbackSchema), submitRecommendationFeedback);

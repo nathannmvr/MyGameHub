@@ -35,6 +35,7 @@ export const API_ROUTES = {
   // ─── Discovery ───
   DISCOVER: {
     LIST: `${API_PREFIX}/discover`,
+    FEEDBACK: `${API_PREFIX}/discover/feedback`,
   },
 
   // ─── Dashboard ───
