@@ -1,0 +1,24 @@
+# --- Dependencies ---
+node_modules/
+
+# --- Build outputs ---
+dist/
+
+# --- Environment ---
+.env
+.env.local
+
+# --- Logs ---
+*.log
+
+# --- Turbo ---
+.turbo/
+
+# --- Test coverage ---
+coverage/
+
+# --- SDD Documentation (local only, not versioned) ---
+spec.md
+design.md
+tasks.md
+.ai/
