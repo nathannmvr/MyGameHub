@@ -189,7 +189,9 @@ describe("CandidateRetriever", () => {
     vi.spyOn(retriever, "affinityBasedCandidates").mockResolvedValue([
       {
         rawgId: 100,
+        slug: 'a',
         title: "A",
+        coverUrl: null,
         genres: ["rpg"],
         platforms: ["PC"],
         releaseDate: null,
@@ -197,7 +199,9 @@ describe("CandidateRetriever", () => {
       },
       {
         rawgId: 101,
+        slug: 'b',
         title: "B",
+        coverUrl: null,
         genres: ["rpg"],
         platforms: ["PC"],
         releaseDate: null,
@@ -208,7 +212,9 @@ describe("CandidateRetriever", () => {
     vi.spyOn(retriever, "itemItemSimilarity").mockResolvedValue([
       {
         rawgId: 100,
+        slug: 'a',
         title: "A",
+        coverUrl: null,
         genres: ["rpg"],
         platforms: ["PC"],
         releaseDate: null,
@@ -216,7 +222,9 @@ describe("CandidateRetriever", () => {
       },
       {
         rawgId: 102,
+        slug: 'c',
         title: "C",
+        coverUrl: null,
         genres: ["strategy"],
         platforms: ["PC"],
         releaseDate: null,
@@ -242,7 +250,9 @@ describe("CandidateRetriever", () => {
     cache.get.mockResolvedValue([
       {
         rawgId: 777,
+        slug: 'from-cache',
         title: "From Cache",
+        coverUrl: null,
         genres: ["rpg"],
         platforms: ["PC"],
         releaseDate: null,

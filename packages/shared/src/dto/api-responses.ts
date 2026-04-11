@@ -2,6 +2,7 @@
 // Standard API response wrappers and expanded DTOs
 
 import type { GameStatus } from "../enums";
+import type { RecommendationEventType } from "./recommendation-event.js";
 import type { RecommendationReason } from "./recommendation-reason.js";
 import type { ScoreBreakdown } from "./score-breakdown.js";
 
@@ -13,6 +14,7 @@ export interface RecommendationFeedbackDTO {
   genres?: string[];
   tags?: string[];
   reason?: string;
+  eventType?: RecommendationEventType;
 }
 
 export interface ApiResponse<T> {

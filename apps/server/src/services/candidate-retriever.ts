@@ -57,7 +57,9 @@ function normalizePreference(value: string): string {
 
 interface GameForRetrieval {
   rawgId: number;
+  slug: string;
   title: string;
+  coverUrl: string | null;
   genres: string[];
   platforms: string[];
   releaseDate: Date | null;
@@ -140,7 +142,9 @@ export class CandidateRetriever {
 
     return {
       rawgId: game.rawgId,
+      slug: `game-${game.rawgId}`,
       title: game.title,
+      coverUrl: null,
       genres: game.genres.map(normalizePreference),
       platforms: game.platforms,
       releaseDate: game.releaseDate,
@@ -188,7 +192,9 @@ export class CandidateRetriever {
       source.push(
         ...response.items.map((item) => ({
           rawgId: item.rawgId,
+          slug: item.slug,
           title: item.title,
+          coverUrl: item.coverUrl,
           genres: item.genres.map(normalizePreference),
           platforms: item.platforms,
           releaseDate: item.releaseDate ? new Date(item.releaseDate) : null,

@@ -89,6 +89,7 @@ Se houver erro de porta ocupada na API (`EADDRINUSE: 3001`), finalize o processo
 - Health: `http://localhost:3001/api/health`
 - API v1: `http://localhost:3001/api/v1`
 - Discover feedback: `POST http://localhost:3001/api/v1/discover/feedback`
+- Discover metrics: `GET http://localhost:3001/api/v1/discover/metrics`
 - OpenAPI JSON: `http://localhost:3001/api/openapi.json`
 - Swagger UI: `http://localhost:3001/api/docs`
 - Frontend: `http://localhost:5173`
@@ -123,6 +124,7 @@ pnpm test
 ## Notas de desenvolvimento
 
 - As rotas do frontend usam contratos de `@gamehub/shared` já prefixados com `/api/v1`.
+- O payload de feedback de Discover aceita `eventType` opcional para telemetria detalhada.
 - Em desenvolvimento local sem chaves externas, há fallback para manter fluxos críticos funcionais (Steam fixture/local).
 - A busca de jogos para adicionar usa RAWG e pode complementar com IGDB; resultados são persistidos localmente quando possível.
 - A sincronização Steam recalcula status apenas quando você executa uma nova sync.

@@ -7,10 +7,13 @@ import type {
   RecommendationFeedbackDTO,
   RecommendationProfile,
 } from "@gamehub/shared";
-import { RecommendationReason } from "@gamehub/shared";
+import { RecommendationEventType, RecommendationReason } from "@gamehub/shared";
 import { getPrismaClient } from "../config/database.js";
 import { CacheService } from "./cache.service.js";
+import { CandidateRetriever } from "./candidate-retriever.js";
+import { MultiObjectiveScorer, type GameForScoring, type UserProfileData } from "./multi-objective-scorer.js";
 import { RawgService } from "./rawg.service.js";
+import { TelemetryService } from "./telemetry.service.js";
 
 interface RawgSearchLike {
   searchGames(query: string, page?: number, pageSize?: number): Promise<{
@@ -31,6 +34,8 @@ interface RecommendationQuery {
   page: number;
   pageSize: number;
   profile: RecommendationProfile;
+  experimentGroup?: "control" | "treatment";
+  fallbackToTrending?: boolean;
 }
 
 interface RecommendationResult {
@@ -174,6 +179,9 @@ export class RecommendationService {
   private readonly prisma: PrismaClient;
   private readonly rawgService: RawgSearchLike;
   private readonly cache: CacheService;
+  private readonly candidateRetriever: CandidateRetriever;
+  private readonly scorer: MultiObjectiveScorer;
+  private readonly telemetryService: TelemetryService;
 
   constructor(options?: {
     prisma?: PrismaClient;
@@ -189,6 +197,13 @@ export class RecommendationService {
             searchGames: async () => ({ items: [] }),
           });
     this.cache = options?.cache ?? new CacheService({ defaultTtlSeconds: 3600 });
+    this.candidateRetriever = new CandidateRetriever({
+      prisma: this.prisma,
+      rawgService: this.rawgService,
+      cache: this.cache,
+    });
+    this.scorer = new MultiObjectiveScorer();
+    this.telemetryService = new TelemetryService(this.prisma);
   }
 
   async getRecommendations(userId: string, query: RecommendationQuery): Promise<RecommendationResult> {
@@ -209,12 +224,52 @@ export class RecommendationService {
         updatedAt: true,
         game: {
           select: {
+            rawgId: true,
             genres: true,
             tags: true,
           },
         },
       },
     });
+
+    const activePlatforms = await this.prisma.platform.findMany({
+      where: { userId, isActive: true },
+      select: { name: true },
+    });
+    const userPlatformNames = activePlatforms.map((platform) => platform.name);
+
+    // Cold-start fallback path
+    if (sample.length < 10 && query.fallbackToTrending) {
+      const fallbackCandidates = await this.candidateRetriever.trendingByPlatform(userPlatformNames, 80);
+      const fallbackPaged = fallbackCandidates.slice(
+        (query.page - 1) * query.pageSize,
+        (query.page - 1) * query.pageSize + query.pageSize
+      );
+
+      const fallbackResult: RecommendationResult = {
+        data: fallbackPaged.map((item) => ({
+          rawgId: item.rawgId,
+          slug: item.slug,
+          title: item.title,
+          coverUrl: item.coverUrl,
+          releaseDate: item.releaseDate ? item.releaseDate.toISOString().slice(0, 10) : null,
+          genres: item.genres,
+          platforms: item.platforms,
+          metacritic: item.metacritic,
+          alreadyInLibrary: false,
+          reason: RecommendationReason.TRENDING_ON_PLATFORM,
+        })),
+        pagination: {
+          totalItems: fallbackCandidates.length,
+          page: query.page,
+          pageSize: query.pageSize,
+          totalPages: Math.ceil(fallbackCandidates.length / query.pageSize),
+        },
+      };
+
+      await this.cache.set(cacheKey, fallbackResult, 60 * 60);
+      return fallbackResult;
+    }
 
     if (sample.length === 0) {
       return {
@@ -228,11 +283,6 @@ export class RecommendationService {
       };
     }
 
-    const genreWeights = new Map<string, number>();
-    const tagWeights = new Map<string, number>();
-    const dislikedGenreWeights = new Map<string, number>();
-    const dislikedTagWeights = new Map<string, number>();
-
     const feedback = await this.prisma.userRecommendationFeedback.findMany({
       where: { userId },
       select: {
@@ -244,9 +294,17 @@ export class RecommendationService {
       take: 500,
     });
 
+    const genreWeights = new Map<string, number>();
+    const tagWeights = new Map<string, number>();
+    const dislikedGenreWeights = new Map<string, number>();
+
+    const userGameIds: number[] = [];
+    const droppedGameIds: number[] = [];
+    const lowRatedGameIds: number[] = [];
+    const playingGenreSet = new Set<string>();
+
     for (const item of sample) {
       const weight = getProfileWeight(item);
-
       if (weight > 0) {
         addWeightedValues(genreWeights, item.game.genres, weight);
         addWeightedValues(tagWeights, item.game.tags, weight * 0.7);
@@ -255,161 +313,112 @@ export class RecommendationService {
       const penaltyWeight = getPenaltyWeight(item);
       if (penaltyWeight > 0) {
         addWeightedValues(dislikedGenreWeights, item.game.genres, penaltyWeight);
-        addWeightedValues(dislikedTagWeights, item.game.tags, penaltyWeight * 0.8);
       }
-    }
 
-    for (const item of feedback) {
-      addWeightedValues(dislikedGenreWeights, item.genres, 4);
-      addWeightedValues(dislikedTagWeights, item.tags, 2.5);
+      if (item.game.rawgId !== null) {
+        userGameIds.push(item.game.rawgId);
+      }
+      if (item.status === "DROPPED" && item.game.rawgId !== null) {
+        droppedGameIds.push(item.game.rawgId);
+      }
+      if (item.rating !== null && item.rating <= 5 && item.game.rawgId !== null) {
+        lowRatedGameIds.push(item.game.rawgId);
+      }
+      if (item.status === "PLAYING") {
+        for (const genre of item.game.genres) {
+          playingGenreSet.add(normalizePreference(genre));
+        }
+      }
     }
 
     const topGenres = getTopWeightedValues(genreWeights, 6);
     const topTags = getTopWeightedValues(tagWeights, 4);
 
-    const searchQuery = [...topGenres, ...topTags].join(" ").trim();
-    if (!searchQuery) {
-      return {
-        data: [],
-        pagination: {
-          totalItems: 0,
-          page: query.page,
-          pageSize: query.pageSize,
-          totalPages: 0,
-        },
-      };
-    }
+    const dismissedRawgIds = new Set(feedback.map((item) => item.rawgId));
+    const likedGenreSet = new Set(topGenres.map(normalizePreference));
+    const dislikedGenreSet = new Set([...dislikedGenreWeights.keys()].map(normalizePreference));
 
-    let candidates: Array<{
-      rawgId: number;
-      slug: string;
-      title: string;
-      coverUrl: string | null;
-      releaseDate: string | null;
-      genres: string[];
-      platforms: string[];
-      metacritic: number | null;
-    }> = [];
+    const minConservativeOverlap = query.profile === "conservative" && likedGenreSet.size > 0 ? 1 : 0;
 
-    try {
-      const rawg = await this.rawgService.searchGames(searchQuery, 1, 40);
-      candidates = rawg.items;
-    } catch {
-      // Local fallback when external RAWG dependency is unavailable.
-      const localGames = await this.prisma.game.findMany({
-        where: {
-          rawgId: { not: null },
-        },
-        take: 80,
-        orderBy: { metacritic: "desc" },
-      });
-
-      candidates = localGames
-        .filter((game) => game.rawgId !== null)
-        .map((game) => ({
-          rawgId: game.rawgId as number,
-          slug: game.rawgSlug ?? `game-${game.rawgId}`,
-          title: game.title,
-          coverUrl: game.coverUrl,
-          releaseDate: game.releaseDate ? game.releaseDate.toISOString().slice(0, 10) : null,
-          genres: game.genres,
-          platforms: game.platforms,
-          metacritic: game.metacritic,
-        }));
-    }
-
-    const inLibraryIds = new Set(
-      (
-        await this.prisma.userGame.findMany({
-          where: { userId },
-          select: {
-            game: {
-              select: { rawgId: true },
-            },
-          },
-        })
-      )
-        .map((item) => item.game.rawgId)
-        .filter((id): id is number => id !== null)
-    );
-
-      const dismissedIds = new Set(feedback.map((item) => item.rawgId));
-
-    const activePlatforms = await this.prisma.platform.findMany({
-      where: { userId, isActive: true },
-      select: { name: true },
-    });
-
-    const normalizedUserPlatforms = new Set(
-      activePlatforms.map((platform) => normalizePlatformName(platform.name))
-    );
-
-    const filtered = candidates.filter((candidate) => {
-      if (inLibraryIds.has(candidate.rawgId)) {
+    const allCandidates = await this.candidateRetriever.getAllCandidates(userId, topGenres, userPlatformNames);
+    const candidates = allCandidates.filter((candidate) => {
+      if (dismissedRawgIds.has(candidate.rawgId)) {
         return false;
       }
 
-      if (dismissedIds.has(candidate.rawgId)) {
+      const normalizedGenres = candidate.genres.map(normalizePreference);
+      const likedOverlap = normalizedGenres.filter((genre) => likedGenreSet.has(genre)).length;
+      const dislikedOverlap = normalizedGenres.filter((genre) => dislikedGenreSet.has(genre)).length;
+      const hasMixedGenres = normalizedGenres.some((genre) => !likedGenreSet.has(genre));
+
+      if (query.profile === "conservative" && likedOverlap < minConservativeOverlap) {
         return false;
       }
 
-      const normalizedCandidatePlatforms = candidate.platforms.map((p) => normalizePlatformName(p));
-      return normalizedCandidatePlatforms.some((platform) => normalizedUserPlatforms.has(platform));
+      // Conservative profile blocks candidates overlapping dropped/low-rated genre signals.
+      if (query.profile === "conservative" && dislikedOverlap > 0) {
+        return false;
+      }
+
+      // Conservative mode avoids weak mixed-genre candidates with low quality signal.
+      if (query.profile === "conservative" && likedOverlap === 1 && hasMixedGenres && (candidate.metacritic ?? 0) < 75) {
+        return false;
+      }
+
+      return true;
     });
 
-    const minSharedGenres = 1;
-    const minFinalScore = query.profile === "exploratory" ? 0.4 : 1;
-    const minOverlapRatio = query.profile === "exploratory" ? 0.3 : 0.6;
+    const profileData: UserProfileData = {
+      profile: query.profile,
+      userGenres: topGenres,
+      userTags: topTags,
+      userPlatforms: userPlatformNames,
+      userGameIds,
+      droppedGameIds,
+      lowRatedGameIds,
+    };
 
-    const scored = filtered
-      .map((candidate) => {
-        const normalizedGenres = candidate.genres.map((genre) => normalizePreference(genre));
-        const overlappedWeights = normalizedGenres
-          .map((genre) => genreWeights.get(genre) ?? 0)
-          .filter((value) => value > 0);
+    const forScoring: GameForScoring[] = candidates.map((candidate) => ({
+      rawgId: candidate.rawgId,
+      title: candidate.title,
+      genres: candidate.genres,
+      platforms: candidate.platforms,
+      releaseDate: candidate.releaseDate,
+      metacritic: candidate.metacritic,
+    }));
 
-        // Hard relevance gate: recommendations must overlap with user preference genres.
-        if (overlappedWeights.length < minSharedGenres) {
-          return null;
-        }
+    const ranked = this.scorer.rankGames(forScoring, profileData, 120);
 
-        const overlapTotal = overlappedWeights.reduce((sum, value) => sum + value, 0);
-        const specificityScore = overlapTotal / Math.max(normalizedGenres.length, 1);
-        const overlapRatio = overlappedWeights.length / Math.max(normalizedGenres.length, 1);
-        const dislikedGenrePenalty = normalizedGenres.reduce((total, genre) => {
-          return total + (dislikedGenreWeights.get(genre) ?? 0);
-        }, 0);
-        const hasStrongDislikedGenre = normalizedGenres.some(
-          (genre) => (dislikedGenreWeights.get(genre) ?? 0) >= 8
-        );
+    const reasonByRawgId = new Map<number, RecommendationReason>();
+    const scoreByRawgId = new Map<number, ReturnType<MultiObjectiveScorer["score"]>>();
 
-        if (overlapRatio < minOverlapRatio) {
-          return null;
-        }
+    for (const entry of ranked) {
+      scoreByRawgId.set(entry.game.rawgId, entry.scoreBreakdown);
 
-        if (query.profile === "conservative" && hasStrongDislikedGenre) {
-          return null;
-        }
+      const genres = entry.game.genres.map(normalizePreference);
+      const hasPlayingAffinity = genres.some((genre) => playingGenreSet.has(genre));
 
-        // Metacritic acts only as a tie-breaker, never as the main ranking signal.
-        const metacriticBonus = candidate.metacritic ? candidate.metacritic / 1000 : 0;
-        const score = overlapTotal + specificityScore * 2 + metacriticBonus - dislikedGenrePenalty * 1.25;
+      let reason = RecommendationReason.GENRE_AFFINITY;
+      if (entry.scoreBreakdown.robustness >= 45) {
+        reason = RecommendationReason.TRENDING_ON_PLATFORM;
+      } else if (entry.scoreBreakdown.novelty >= 45) {
+        reason = RecommendationReason.NEW_RELEASE_MATCH;
+      } else if (hasPlayingAffinity) {
+        reason = RecommendationReason.SIMILAR_TO_PLAYING;
+      }
 
-        if (score < minFinalScore) {
-          return null;
-        }
+      reasonByRawgId.set(entry.game.rawgId, reason);
+    }
 
-        return {
-          candidate,
-          score,
-        };
-      })
-      .filter((entry): entry is { candidate: (typeof candidates)[number]; score: number } => entry !== null)
-      .sort((a, b) => b.score - a.score)
-      .map((entry) => entry.candidate);
+    const rankedIds = ranked.map((item) => item.game.rawgId);
+    const rankedSet = new Set(rankedIds);
+
+    const rankedCandidates = candidates
+      .filter((candidate) => rankedSet.has(candidate.rawgId))
+      .sort((a, b) => rankedIds.indexOf(a.rawgId) - rankedIds.indexOf(b.rawgId));
 
     const start = (query.page - 1) * query.pageSize;
-    const paged = scored.slice(start, start + query.pageSize);
+    const paged = rankedCandidates.slice(start, start + query.pageSize);
 
     const result: RecommendationResult = {
       data: paged.map((item) => ({
@@ -417,18 +426,19 @@ export class RecommendationService {
         slug: item.slug,
         title: item.title,
         coverUrl: item.coverUrl,
-        releaseDate: item.releaseDate,
+        releaseDate: item.releaseDate ? item.releaseDate.toISOString().slice(0, 10) : null,
         genres: item.genres,
         platforms: item.platforms,
         metacritic: item.metacritic,
         alreadyInLibrary: false,
-        reason: RecommendationReason.GENRE_AFFINITY, // TODO: Fase 16.2 will compute proper reason
+        reason: reasonByRawgId.get(item.rawgId) ?? RecommendationReason.GENRE_AFFINITY,
+        scoreBreakdown: scoreByRawgId.get(item.rawgId),
       })),
       pagination: {
-        totalItems: scored.length,
+        totalItems: rankedCandidates.length,
         page: query.page,
         pageSize: query.pageSize,
-        totalPages: Math.ceil(scored.length / query.pageSize),
+        totalPages: Math.ceil(rankedCandidates.length / query.pageSize),
       },
     };
 
@@ -437,29 +447,63 @@ export class RecommendationService {
   }
 
   async submitFeedback(userId: string, payload: RecommendationFeedbackDTO): Promise<void> {
-    await this.prisma.userRecommendationFeedback.upsert({
-      where: {
-        userId_rawgId: {
+    const inferEventType = (): RecommendationEventType => {
+      if (payload.eventType) {
+        return payload.eventType;
+      }
+
+      const normalizedReason = payload.reason?.toLowerCase() ?? "";
+      if (normalizedReason.includes("event:impression")) return RecommendationEventType.IMPRESSION;
+      if (normalizedReason.includes("event:open_details")) return RecommendationEventType.OPEN_DETAILS;
+      if (normalizedReason.includes("event:add_to_library")) return RecommendationEventType.ADD_TO_LIBRARY;
+      if (normalizedReason.includes("event:hide")) return RecommendationEventType.HIDE;
+      return RecommendationEventType.DISMISS;
+    };
+
+    const eventType = inferEventType();
+
+    await this.telemetryService.logEvent(userId, payload.rawgId, eventType);
+
+    if (eventType === RecommendationEventType.DISMISS || eventType === RecommendationEventType.HIDE) {
+      await this.prisma.userRecommendationFeedback.upsert({
+        where: {
+          userId_rawgId: {
+            userId,
+            rawgId: payload.rawgId,
+          },
+        },
+        create: {
           userId,
           rawgId: payload.rawgId,
+          title: payload.title,
+          genres: payload.genres ?? [],
+          tags: payload.tags ?? [],
+          reason: payload.reason,
         },
-      },
-      create: {
-        userId,
-        rawgId: payload.rawgId,
-        title: payload.title,
-        genres: payload.genres ?? [],
-        tags: payload.tags ?? [],
-        reason: payload.reason,
-      },
-      update: {
-        title: payload.title,
-        genres: payload.genres ?? [],
-        tags: payload.tags ?? [],
-        reason: payload.reason,
-      },
-    });
+        update: {
+          title: payload.title,
+          genres: payload.genres ?? [],
+          tags: payload.tags ?? [],
+          reason: payload.reason,
+        },
+      });
 
-    await this.cache.flush(`rawg:discover:v3:${userId}:*`);
+      await this.cache.flush(`rawg:discover:v3:${userId}:*`);
+      await this.cache.flush(`recommendation:candidates:v1:${userId}:*`);
+    }
+  }
+
+  async getExperimentMetrics(params: {
+    startDate: Date;
+    endDate: Date;
+    experimentGroup?: "control" | "treatment";
+    k?: number;
+  }) {
+    return this.telemetryService.computeMetricsForExperiment(
+      params.startDate,
+      params.endDate,
+      params.experimentGroup,
+      params.k ?? 10
+    );
   }
 }

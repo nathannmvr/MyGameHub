@@ -23,6 +23,7 @@ export const DiscoverQuerySchema = z.object({
     .default(20),
   profile: RecommendationProfileSchema.default("conservative"),
   experimentGroup: z.enum(["control", "treatment"]).optional(), // A/B testing (16.6)
+  fallbackToTrending: z.coerce.boolean().optional(),
 });
 
 /**
@@ -34,6 +35,7 @@ export const RecommendationFeedbackSchema = z.object({
   genres: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   tags: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
   reason: z.string().trim().max(500).optional(),
+  eventType: z.enum(["IMPRESSION", "OPEN_DETAILS", "ADD_TO_LIBRARY", "DISMISS", "HIDE"]).optional(),
 });
 
 export type DiscoverQueryInput = z.infer<typeof DiscoverQuerySchema>;

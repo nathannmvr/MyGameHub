@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { API_ROUTES, type ApiResponse } from '@gamehub/shared';
+import { API_ROUTES, RecommendationEventType, type ApiResponse } from '@gamehub/shared';
 import { apiClient } from '../lib/api-client';
 
 type TelemetryEventType = 'impression' | 'open_details' | 'add_to_library' | 'dismiss' | 'hide';
@@ -30,6 +30,16 @@ export function useGameTelemetry() {
           rawgId: event.rawgId,
           title: event.title,
           reason: `event:${event.type}`,
+          eventType:
+            event.type === 'impression'
+              ? RecommendationEventType.IMPRESSION
+              : event.type === 'open_details'
+                ? RecommendationEventType.OPEN_DETAILS
+                : event.type === 'add_to_library'
+                  ? RecommendationEventType.ADD_TO_LIBRARY
+                  : event.type === 'hide'
+                    ? RecommendationEventType.HIDE
+                    : RecommendationEventType.DISMISS,
         }),
       ),
     );

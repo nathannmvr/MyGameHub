@@ -111,6 +111,22 @@ export const openApiDocument = {
           platforms: { type: "array", items: { type: "string" } },
           metacritic: { type: ["integer", "null"] },
           alreadyInLibrary: { type: "boolean" },
+          reason: {
+            type: "string",
+            enum: ["GENRE_AFFINITY", "SIMILAR_TO_PLAYING", "TRENDING_ON_PLATFORM", "NEW_RELEASE_MATCH"],
+          },
+          scoreBreakdown: {
+            type: "object",
+            nullable: true,
+            properties: {
+              affinity: { type: "number" },
+              diversity: { type: "number" },
+              novelty: { type: "number" },
+              robustness: { type: "number" },
+              penalty: { type: "number" },
+              final: { type: "number" },
+            },
+          },
         },
       },
       SyncJob: {
@@ -212,8 +228,59 @@ export const openApiDocument = {
       get: {
         tags: ["Discover"],
         summary: "Get recommendations",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "pageSize", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "profile", in: "query", schema: { type: "string", enum: ["conservative", "exploratory"] } },
+          { name: "experimentGroup", in: "query", schema: { type: "string", enum: ["control", "treatment"] } },
+          { name: "fallbackToTrending", in: "query", schema: { type: "boolean" } },
+        ],
         responses: {
           "200": { description: "Recommendations page" },
+        },
+      },
+    },
+    "/api/v1/discover/feedback": {
+      post: {
+        tags: ["Discover"],
+        summary: "Submit recommendation feedback/telemetry event",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  rawgId: { type: "integer" },
+                  title: { type: "string" },
+                  reason: { type: "string" },
+                  eventType: {
+                    type: "string",
+                    enum: ["IMPRESSION", "OPEN_DETAILS", "ADD_TO_LIBRARY", "DISMISS", "HIDE"],
+                  },
+                },
+                required: ["rawgId"],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Feedback accepted" },
+        },
+      },
+    },
+    "/api/v1/discover/metrics": {
+      get: {
+        tags: ["Discover"],
+        summary: "Get aggregated recommendation metrics by experiment group",
+        parameters: [
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "experimentGroup", in: "query", schema: { type: "string", enum: ["control", "treatment"] } },
+          { name: "k", in: "query", schema: { type: "integer", default: 10 } },
+        ],
+        responses: {
+          "200": { description: "Aggregated metrics" },
         },
       },
     },

@@ -44,16 +44,20 @@ export async function getRecommendations(
 ): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    const { page, pageSize, profile } = req.query as unknown as {
+    const { page, pageSize, profile, experimentGroup, fallbackToTrending } = req.query as unknown as {
       page: number;
       pageSize: number;
       profile: RecommendationProfile;
+      experimentGroup?: "control" | "treatment";
+      fallbackToTrending?: boolean;
     };
 
     const recommendations = await getService().getRecommendations(userId, {
       page,
       pageSize,
       profile,
+      experimentGroup,
+      fallbackToTrending,
     });
 
     res.json({
@@ -77,11 +81,48 @@ export async function submitRecommendationFeedback(
 
     await getService().submitFeedback(userId, payload);
 
+    const isDismissive = payload.eventType === undefined || payload.eventType === "DISMISS" || payload.eventType === "HIDE";
+
     res.status(201).json({
       success: true,
       data: {
-        dismissed: true,
+        dismissed: isDismissive,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// GET /api/v1/discover/metrics
+export async function getRecommendationMetrics(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { startDate, endDate, experimentGroup, k } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      experimentGroup?: "control" | "treatment";
+      k?: string;
+    };
+
+    const now = new Date();
+    const start = startDate ? new Date(startDate) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate) : now;
+    const topK = k ? Number(k) : 10;
+
+    const metrics = await getService().getExperimentMetrics({
+      startDate: start,
+      endDate: end,
+      experimentGroup,
+      k: topK,
+    });
+
+    res.json({
+      success: true,
+      data: metrics,
     });
   } catch (error) {
     next(error);

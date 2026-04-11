@@ -233,8 +233,8 @@ describe("TelemetryService", () => {
           .mockResolvedValue(usersWithEvents);
       }
 
-      // This test verifies integration but would need more detailed mocking
-      // In real tests, you'd mock the underlying computeNDCGAtK and computePrecisionAtK
+      vi.spyOn(telemetryService, "computeNDCGAtK").mockResolvedValue(0.8);
+      vi.spyOn(telemetryService, "computePrecisionAtK").mockResolvedValue(0.5);
 
       const result = await telemetryService.computeMetricsForExperiment(
         new Date("2025-01-01"),
@@ -245,6 +245,9 @@ describe("TelemetryService", () => {
       expect(result).toHaveProperty("avgPrecision");
       expect(result).toHaveProperty("userCount");
       expect(result).toHaveProperty("sampleSize");
+      expect(result.avgNDCG).toBe(0.8);
+      expect(result.avgPrecision).toBe(0.5);
+      expect(result.sampleSize).toBe(2);
     });
   });
 });
