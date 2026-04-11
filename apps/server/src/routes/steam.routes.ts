@@ -1,17 +1,15 @@
 // src/routes/steam.routes.ts
-// Steam sync routes — Stub (501 Not Implemented)
-// Implementation: Phase 7
+// Steam sync routes wired to controller with validation.
 
 import { Router } from "express";
+import { validate } from "../middleware/validate.js";
+import { SteamSyncSchema } from "../schemas/index.js";
+import { getSteamSyncStatus, startSteamSync } from "../controllers/steam.controller.js";
 
 export const steamRouter = Router();
 
 // POST /api/v1/steam/sync — Start Steam sync job
-steamRouter.post("/sync", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+steamRouter.post("/sync", validate(SteamSyncSchema), startSteamSync);
 
 // GET /api/v1/steam/sync/:jobId — Poll sync job status
-steamRouter.get("/sync/:jobId", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+steamRouter.get("/sync/:jobId", getSteamSyncStatus);

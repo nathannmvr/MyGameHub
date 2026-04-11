@@ -12,23 +12,6 @@ import { createApp } from "../../../src/app.js";
 const app = createApp();
 
 describe("API Route Stubs — Remaining 501 Not Implemented", () => {
-  // ─── Steam ───
-  describe("Steam", () => {
-    it("POST /api/v1/steam/sync → 501", async () => {
-      const res = await request(app)
-        .post("/api/v1/steam/sync")
-        .send({ steamId: "123", platformId: "abc" });
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("GET /api/v1/steam/sync/:jobId → 501", async () => {
-      const res = await request(app).get("/api/v1/steam/sync/job-123");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-  });
-
   // ─── Discover ───
   describe("Discover", () => {
     it("GET /api/v1/discover → 501", async () => {
