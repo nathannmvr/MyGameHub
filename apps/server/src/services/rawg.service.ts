@@ -1,6 +1,9 @@
 // src/services/rawg.service.ts
 // RAWG API client with cache, throttle and retry strategy.
 
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { AppError } from "../middleware/error-handler.js";
 import { CacheService } from "./cache.service.js";
 
@@ -108,13 +111,26 @@ export class RawgService {
   private readonly cacheTtlDetailSeconds: number;
   private lastRequestTime = 0;
 
+  private resolveApiKey(explicitApiKey?: string): string {
+    const directKey = explicitApiKey ?? process.env.RAWG_API_KEY ?? "";
+    if (directKey.trim()) {
+      return directKey;
+    }
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+    return process.env.RAWG_API_KEY ?? "";
+  }
+
   constructor(options: RawgServiceOptions = {}) {
-    this.apiKey = options.apiKey ?? process.env.RAWG_API_KEY ?? "";
+    this.apiKey = this.resolveApiKey(options.apiKey);
     this.cache = options.cache ?? new CacheService();
     this.fetchFn = options.fetchFn ?? fetch;
     this.sleepFn = options.sleepFn ?? sleep;
     this.nowFn = options.nowFn ?? Date.now;
-    this.baseUrl = options.baseUrl ?? "https://api.rawg.io/api";
+    this.baseUrl = (options.baseUrl ?? "https://api.rawg.io/api").replace(/\/?$/, "/");
     this.requestDelayMs = options.requestDelayMs ?? 200;
     this.maxRetries = options.maxRetries ?? 3;
     this.retryDelayMs = options.retryDelayMs ?? 1000;
@@ -233,7 +249,8 @@ export class RawgService {
   }
 
   private buildUrl(path: string, params: Record<string, string>): string {
-    const url = new URL(path, this.baseUrl);
+    const normalizedPath = path.replace(/^\/+/, "");
+    const url = new URL(normalizedPath, this.baseUrl);
 
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);

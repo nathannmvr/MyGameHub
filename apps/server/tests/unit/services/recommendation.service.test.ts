@@ -110,6 +110,100 @@ describe("RecommendationService", () => {
     expect(result.pagination.totalItems).toBe(1);
   });
 
+  it("uses PLAYING games as recommendation signal", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const playing = await prisma.game.create({
+      data: {
+        rawgId: 901,
+        title: "Active Session",
+        genres: ["Soulslike"],
+        tags: ["Boss Rush"],
+      },
+    });
+
+    await prisma.userGame.create({
+      data: {
+        userId: user.id,
+        gameId: playing.id,
+        platformId: pc.id,
+        status: "PLAYING",
+        playtimeHours: 30,
+      },
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 902,
+            slug: "candidate-playing",
+            title: "Candidate Playing",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Soulslike"],
+            platforms: ["PC"],
+            metacritic: 85,
+          },
+        ],
+        pagination: { totalItems: 1, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+
+    expect(rawgService.searchGames).toHaveBeenCalledTimes(1);
+    expect(result.data.map((item) => item.rawgId)).toEqual([902]);
+  });
+
+  it("gives stronger preference weight to rating 10 than rating 7", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const highlyRated = await prisma.game.create({
+      data: {
+        rawgId: 910,
+        title: "Strategy Master",
+        genres: ["Strategy"],
+        tags: ["Tactics"],
+      },
+    });
+
+    const mediumRated = await prisma.game.create({
+      data: {
+        rawgId: 911,
+        title: "Puzzle Time",
+        genres: ["Puzzle"],
+        tags: ["Relaxing"],
+      },
+    });
+
+    await prisma.userGame.createMany({
+      data: [
+        { userId: user.id, gameId: highlyRated.id, platformId: pc.id, status: "PLAYED", rating: 10 },
+        { userId: user.id, gameId: mediumRated.id, platformId: pc.id, status: "PLAYED", rating: 7 },
+      ],
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [],
+        pagination: { totalItems: 0, page: 1, pageSize: 40, totalPages: 0 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    await service.getRecommendations(user.id, { page: 1, pageSize: 20 });
+
+    const recommendationQuery = rawgService.searchGames.mock.calls[0]?.[0] as string;
+    const strategyIndex = recommendationQuery.indexOf("strategy");
+    const puzzleIndex = recommendationQuery.indexOf("puzzle");
+
+    expect(strategyIndex).toBeGreaterThanOrEqual(0);
+    expect(puzzleIndex).toBeGreaterThanOrEqual(0);
+    expect(strategyIndex).toBeLessThan(puzzleIndex);
+  });
+
   it("excludes games already in local library (RN-08)", async () => {
     const { user, pc } = await seedUserWithPlatforms();
 

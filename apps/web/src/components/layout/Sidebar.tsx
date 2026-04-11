@@ -65,11 +65,6 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
-
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-text-secondary">
-          <p className="font-medium text-text-primary">Fluxo base pronto</p>
-          <p className="mt-2 leading-6">Routing, query cache e shell responsivo prontos para a camada de páginas e dados.</p>
-        </div>
       </aside>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-background/95 px-3 py-2 backdrop-blur-xl lg:hidden">

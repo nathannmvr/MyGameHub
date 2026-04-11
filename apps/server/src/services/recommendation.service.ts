@@ -62,17 +62,62 @@ function normalizePlatformName(name: string): string {
   return normalized;
 }
 
-function countTopValues(values: string[], maxItems = 5): string[] {
-  const counter = new Map<string, number>();
+function normalizePreference(value: string): string {
+  return value.trim().toLowerCase();
+}
 
+function addWeightedValues(counter: Map<string, number>, values: string[], weight: number): void {
   for (const value of values) {
-    counter.set(value, (counter.get(value) ?? 0) + 1);
-  }
+    const normalized = normalizePreference(value);
+    if (!normalized) {
+      continue;
+    }
 
+    counter.set(normalized, (counter.get(normalized) ?? 0) + weight);
+  }
+}
+
+function getTopWeightedValues(counter: Map<string, number>, maxItems = 5): string[] {
   return [...counter.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, maxItems)
     .map(([value]) => value);
+}
+
+function getProfileWeight(item: {
+  status: "WISHLIST" | "BACKLOG" | "PLAYING" | "PLAYED" | "DROPPED";
+  rating: number | null;
+  updatedAt: Date;
+}, now = new Date()): number {
+  let weight = 0;
+
+  switch (item.status) {
+    case "PLAYING":
+      weight += 6;
+      break;
+    case "PLAYED":
+      weight += 3;
+      break;
+    case "WISHLIST":
+      weight += 1.5;
+      break;
+    default:
+      break;
+  }
+
+  if (item.rating !== null) {
+    // Stronger weighting for high-rated games (10 has considerably more weight than 7).
+    weight += Math.max(item.rating - 6, 0) * 1.2;
+  }
+
+  const recentCutoff = new Date(now);
+  recentCutoff.setMonth(recentCutoff.getMonth() - 3);
+
+  if (item.updatedAt >= recentCutoff) {
+    weight += 2;
+  }
+
+  return weight;
 }
 
 export class RecommendationService {
@@ -106,15 +151,12 @@ export class RecommendationService {
     const sample = await this.prisma.userGame.findMany({
       where: {
         userId,
-        OR: [
-          {
-            status: "PLAYED",
-            OR: [{ rating: null }, { rating: { gte: 7 } }],
-          },
-          { status: "WISHLIST" },
-        ],
+        status: { in: ["PLAYING", "PLAYED", "WISHLIST"] },
       },
-      include: {
+      select: {
+        status: true,
+        rating: true,
+        updatedAt: true,
         game: {
           select: {
             genres: true,
@@ -136,11 +178,21 @@ export class RecommendationService {
       };
     }
 
-    const allGenres = sample.flatMap((item) => item.game.genres);
-    const allTags = sample.flatMap((item) => item.game.tags);
+    const genreWeights = new Map<string, number>();
+    const tagWeights = new Map<string, number>();
 
-    const topGenres = countTopValues(allGenres, 5);
-    const topTags = countTopValues(allTags, 5);
+    for (const item of sample) {
+      const weight = getProfileWeight(item);
+      if (weight <= 0) {
+        continue;
+      }
+
+      addWeightedValues(genreWeights, item.game.genres, weight);
+      addWeightedValues(tagWeights, item.game.tags, weight * 0.7);
+    }
+
+    const topGenres = getTopWeightedValues(genreWeights, 6);
+    const topTags = getTopWeightedValues(tagWeights, 4);
 
     const searchQuery = [...topGenres, ...topTags].join(" ").trim();
     if (!searchQuery) {
@@ -226,8 +278,24 @@ export class RecommendationService {
       return normalizedCandidatePlatforms.some((platform) => normalizedUserPlatforms.has(platform));
     });
 
+    const scored = filtered
+      .map((candidate) => {
+        const genreScore = candidate.genres.reduce((total, genre) => {
+          return total + (genreWeights.get(normalizePreference(genre)) ?? 0);
+        }, 0);
+
+        const metacriticBonus = candidate.metacritic ? candidate.metacritic / 200 : 0;
+
+        return {
+          candidate,
+          score: genreScore + metacriticBonus,
+        };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.candidate);
+
     const start = (query.page - 1) * query.pageSize;
-    const paged = filtered.slice(start, start + query.pageSize);
+    const paged = scored.slice(start, start + query.pageSize);
 
     const result: RecommendationResult = {
       data: paged.map((item) => ({
@@ -242,10 +310,10 @@ export class RecommendationService {
         alreadyInLibrary: false,
       })),
       pagination: {
-        totalItems: filtered.length,
+        totalItems: scored.length,
         page: query.page,
         pageSize: query.pageSize,
-        totalPages: Math.ceil(filtered.length / query.pageSize),
+        totalPages: Math.ceil(scored.length / query.pageSize),
       },
     };
 

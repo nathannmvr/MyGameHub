@@ -197,7 +197,11 @@ export async function searchGames(
     try {
       searchResult = await getRawgService().searchGames(q, page, pageSize);
       if (searchResult.items.length > 0) {
-        await persistSearchResults(searchResult.items);
+        try {
+          await persistSearchResults(searchResult.items);
+        } catch {
+          // Persistence issues must not hide successful RAWG responses from the client.
+        }
       }
     } catch {
       // Try IGDB/local fallback below.
@@ -222,7 +226,11 @@ export async function searchGames(
               },
             };
 
-            await persistSearchResults(resolvedItems);
+            try {
+              await persistSearchResults(resolvedItems);
+            } catch {
+              // Persistence issues must not hide successful IGDB+RAWG responses from the client.
+            }
           }
         } catch {
           // Fallback to local search below.
