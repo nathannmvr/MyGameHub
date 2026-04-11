@@ -33,6 +33,16 @@ async function enqueueWithFallback(data: {
   steamId: string;
   platformId: string;
 }) {
+  if (process.env.NODE_ENV !== "production") {
+    setTimeout(() => {
+      getInlineSteamSyncWorker().processSyncJob(data).catch(() => {
+        // The worker service already persists FAILED status in the sync job.
+      });
+    }, 0);
+
+    return;
+  }
+
   try {
     await Promise.race([
       enqueueSteamSyncJob(data),

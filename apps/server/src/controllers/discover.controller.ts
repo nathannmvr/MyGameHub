@@ -43,7 +43,7 @@ export async function getRecommendations(
 ): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    const { page, pageSize } = req.query as { page: number; pageSize: number };
+    const { page, pageSize } = req.query as unknown as { page: number; pageSize: number };
 
     const recommendations = await getService().getRecommendations(userId, {
       page,

@@ -81,7 +81,8 @@ describe("Steam Routes Integration", () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.jobId).toBeDefined();
     expect(res.body.data.status).toBe("PENDING");
-    expect(enqueueSteamSyncJobMock).toHaveBeenCalledTimes(1);
+    // In non-production environments, sync runs inline without BullMQ.
+    expect(enqueueSteamSyncJobMock).toHaveBeenCalledTimes(0);
   });
 
   it("POST /api/v1/steam/sync should return 409 if there is already a RUNNING job (RN-07)", async () => {

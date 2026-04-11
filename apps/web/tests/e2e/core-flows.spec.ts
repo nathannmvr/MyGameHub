@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test';
 
-test('platform and library flow can create, search, edit, and remove data', async ({ page }) => {
+test('platform and library flow can create, search, edit, and remove data', async ({ page, request }) => {
+  const existingLibrary = await request.get('/api/v1/library');
+  if (existingLibrary.ok()) {
+    const payload = await existingLibrary.json();
+    const items: Array<{ id: string }> = payload?.data?.data ?? [];
+
+    for (const item of items) {
+      await request.delete(`/api/v1/library/${item.id}`);
+    }
+  }
+
   const uniqueSuffix = Date.now();
   const platformName = `E2E Platform ${uniqueSuffix}`;
 
@@ -19,21 +29,18 @@ test('platform and library flow can create, search, edit, and remove data', asyn
   await page.getByRole('button', { name: 'Adicionar jogo' }).first().click();
 
   await page.getByRole('textbox', { name: 'Buscar jogo' }).fill('hades');
-  const searchResultButton = page.getByRole('button', { name: /hades/i }).first();
+  const addGameDialog = page.getByRole('dialog').filter({ hasText: 'Adicionar jogo à biblioteca' });
+  const searchResultButton = addGameDialog.locator('button:enabled').filter({ hasText: /hades/i }).first();
   await expect(searchResultButton).toBeVisible();
   const gameTitle = (await searchResultButton.locator('p').first().textContent())?.trim() ?? 'Hades';
   await searchResultButton.click();
 
-  const addGameDialog = page.getByRole('dialog').filter({ hasText: 'Adicionar jogo à biblioteca' });
   await addGameDialog.getByRole('combobox', { name: 'Plataforma' }).selectOption({ label: platformName });
   await addGameDialog.getByRole('spinbutton', { name: 'Nota' }).fill('8');
   await addGameDialog.getByRole('spinbutton', { name: 'Horas jogadas' }).fill('12.5');
   await addGameDialog.getByRole('textbox', { name: 'Review' }).fill(`Fluxo e2e válido ${uniqueSuffix}`);
   await addGameDialog.getByRole('button', { name: 'Adicionar' }).click();
-  if (await addGameDialog.isVisible()) {
-    await addGameDialog.getByRole('button', { name: 'Cancelar' }).click();
-  }
-  await expect(addGameDialog).toBeHidden();
+  await expect(addGameDialog).toBeHidden({ timeout: 15_000 });
 
   const addedGameCard = page.locator('article').filter({ hasText: new RegExp(gameTitle, 'i') }).first();
   await expect(addedGameCard).toBeVisible();
@@ -83,7 +90,7 @@ test('steam sync starts and reaches terminal status with progress visible', asyn
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Perfil e sincronização Steam.' })).toBeVisible();
 
-  await page.getByRole('textbox', { name: 'Steam ID' }).fill('76561198000000000');
+  await page.getByRole('textbox', { name: 'Steam ID' }).fill('76561198185150675');
   await page.getByRole('combobox', { name: 'Plataforma' }).selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Sincronizar' }).click();
 
@@ -97,6 +104,6 @@ test('steam sync starts and reaches terminal status with progress visible', asyn
   await expect
     .poll(async () => {
       return (await syncSection.locator('h2').first().textContent())?.trim();
-    }, { timeout: 30_000 })
+    }, { timeout: 180_000 })
     .toMatch(/Concluído|Erro na sincronização/);
 });

@@ -53,7 +53,13 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
   return (
     <Modal open={open} onClose={onClose} title="Adicionar jogo à biblioteca">
       <div className="space-y-5">
-        <Input label="Buscar jogo" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Digite ao menos 2 caracteres" />
+        <Input
+          label="Buscar jogo"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Digite ao menos 2 caracteres"
+          helperText="Pesquisa no catálogo RAWG e mantém a biblioteca local em sincronia."
+        />
 
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
           <p className="text-xs uppercase tracking-[0.24em] text-text-secondary">Resultado selecionado</p>
@@ -68,10 +74,18 @@ export function AddGameModal({ open, onClose }: AddGameModalProps) {
                 <button
                   key={game.rawgId}
                   type="button"
-                  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition hover:bg-white/10"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-left transition hover:border-primary/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => setSelectedGame(game)}
+                  disabled={game.alreadyInLibrary}
                 >
-                  <p className="font-medium text-text-primary">{game.title}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium text-text-primary">{game.title}</p>
+                    {game.alreadyInLibrary ? (
+                      <span className="rounded-full border border-accent-green/20 bg-accent-green/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-green">
+                        Já na biblioteca
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-sm text-text-secondary">{game.platforms.join(', ') || 'Plataformas não informadas'}</p>
                 </button>
               ))}

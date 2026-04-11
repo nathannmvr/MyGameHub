@@ -6,7 +6,7 @@ import { validate } from "../middleware/validate.js";
 import { GameSearchQuerySchema } from "../schemas/index.js";
 import { getGameDetails, searchGames } from "../controllers/games.controller.js";
 
-export const gamesRouter = Router();
+export const gamesRouter: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/games/search?q= — Search games via RAWG
 gamesRouter.get("/search", validate(GameSearchQuerySchema, "query"), searchGames);

@@ -9,7 +9,7 @@ import { steamRouter } from "./steam.routes.js";
 import { discoverRouter } from "./discover.routes.js";
 import { dashboardRouter } from "./dashboard.routes.js";
 
-export const apiRouter = Router();
+export const apiRouter: ReturnType<typeof Router> = Router();
 
 // ─── Mount Sub-Routers ───
 apiRouter.use("/platforms", platformsRouter);

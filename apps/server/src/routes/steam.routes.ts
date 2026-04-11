@@ -6,7 +6,7 @@ import { validate } from "../middleware/validate.js";
 import { SteamSyncSchema } from "../schemas/index.js";
 import { getSteamSyncStatus, startSteamSync } from "../controllers/steam.controller.js";
 
-export const steamRouter = Router();
+export const steamRouter: ReturnType<typeof Router> = Router();
 
 // POST /api/v1/steam/sync — Start Steam sync job
 steamRouter.post("/sync", validate(SteamSyncSchema), startSteamSync);

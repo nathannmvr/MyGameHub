@@ -9,7 +9,7 @@ import { apiRouter } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { openApiDocument } from "./docs/openapi.js";
 
-export function createApp() {
+export function createApp(): express.Express {
   const app = express();
 
   // ─── Global Middleware ───

@@ -129,6 +129,10 @@ describe("Games Routes Integration", () => {
     expect(res.body.data.data[0].alreadyInLibrary).toBe(true);
     expect(res.body.data.data[1].alreadyInLibrary).toBe(false);
     expect(res.body.data.pagination.totalItems).toBe(2);
+
+    const persistedGame = await prisma.game.findUnique({ where: { rawgId: 4200 } });
+    expect(persistedGame).not.toBeNull();
+    expect(persistedGame?.title).toBe("Portal");
   });
 
   it("GET /api/v1/games/search without q should return 400", async () => {

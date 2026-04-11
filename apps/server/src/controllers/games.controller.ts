@@ -10,6 +10,28 @@ import { AppError } from "../middleware/error-handler.js";
 
 let rawgService: RawgService | null = null;
 
+function mapCatalogGame(game: {
+  rawgId: number | null;
+  rawgSlug: string | null;
+  title: string;
+  coverUrl: string | null;
+  releaseDate: Date | null;
+  genres: string[];
+  platforms: string[];
+  metacritic: number | null;
+}) {
+  return {
+    rawgId: game.rawgId as number,
+    slug: game.rawgSlug ?? `game-${game.rawgId}`,
+    title: game.title,
+    coverUrl: game.coverUrl,
+    releaseDate: game.releaseDate ? game.releaseDate.toISOString().slice(0, 10) : null,
+    genres: game.genres,
+    platforms: game.platforms,
+    metacritic: game.metacritic,
+  };
+}
+
 function getRawgService(): RawgService {
   if (!rawgService) {
     rawgService = new RawgService({
@@ -43,16 +65,7 @@ async function searchGamesLocal(query: string, page: number, pageSize: number) {
   ]);
 
   return {
-    items: games.map((game) => ({
-      rawgId: game.rawgId as number,
-      slug: game.rawgSlug ?? `game-${game.rawgId}`,
-      title: game.title,
-      coverUrl: game.coverUrl,
-      releaseDate: game.releaseDate ? game.releaseDate.toISOString().slice(0, 10) : null,
-      genres: game.genres,
-      platforms: game.platforms,
-      metacritic: game.metacritic,
-    })),
+    items: games.map(mapCatalogGame),
     pagination: {
       totalItems,
       page,
@@ -60,6 +73,46 @@ async function searchGamesLocal(query: string, page: number, pageSize: number) {
       totalPages: Math.ceil(totalItems / pageSize),
     },
   };
+}
+
+async function persistSearchResults(items: Array<{
+  rawgId: number;
+  slug: string;
+  title: string;
+  coverUrl: string | null;
+  releaseDate: string | null;
+  genres: string[];
+  platforms: string[];
+  metacritic: number | null;
+}>) {
+  const prisma = getPrismaClient();
+
+  await Promise.all(
+    items.map((item) =>
+      prisma.game.upsert({
+        where: { rawgId: item.rawgId },
+        create: {
+          rawgId: item.rawgId,
+          rawgSlug: item.slug,
+          title: item.title,
+          coverUrl: item.coverUrl,
+          releaseDate: item.releaseDate ? new Date(item.releaseDate) : null,
+          genres: item.genres,
+          platforms: item.platforms,
+          metacritic: item.metacritic,
+        },
+        update: {
+          rawgSlug: item.slug,
+          title: item.title,
+          coverUrl: item.coverUrl,
+          releaseDate: item.releaseDate ? new Date(item.releaseDate) : null,
+          genres: item.genres,
+          platforms: item.platforms,
+          metacritic: item.metacritic,
+        },
+      })
+    )
+  );
 }
 
 async function getCurrentUserId(): Promise<string> {
@@ -84,7 +137,7 @@ export async function searchGames(
 ): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    const { q, page, pageSize } = req.query as {
+    const { q, page, pageSize } = req.query as unknown as {
       q: string;
       page: number;
       pageSize: number;
@@ -94,6 +147,7 @@ export async function searchGames(
 
     try {
       searchResult = await getRawgService().searchGames(q, page, pageSize);
+      await persistSearchResults(searchResult.items);
     } catch {
       searchResult = await searchGamesLocal(q, page, pageSize);
     }

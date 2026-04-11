@@ -44,11 +44,13 @@ export class SteamSyncWorkerService {
   private readonly prisma: PrismaClient;
   private readonly steamService: SteamServiceLike;
   private readonly rawgService: RawgSearchLike;
+  private readonly maxItems: number | null;
 
   constructor(options?: {
     prisma?: PrismaClient;
     steamService?: SteamServiceLike;
     rawgService?: RawgSearchLike;
+    maxItems?: number | null;
   }) {
     this.prisma = options?.prisma ?? getPrismaClient();
     this.steamService = options?.steamService ?? new SteamService();
@@ -59,6 +61,8 @@ export class SteamSyncWorkerService {
         : {
             searchGames: async () => ({ items: [] }),
           });
+      const configuredLimit = options?.maxItems ?? Number(process.env.STEAM_SYNC_MAX_ITEMS ?? "");
+      this.maxItems = Number.isFinite(configuredLimit) && configuredLimit > 0 ? configuredLimit : null;
   }
 
   async processSyncJob(data: SteamSyncJobData): Promise<void> {
@@ -78,7 +82,16 @@ export class SteamSyncWorkerService {
         },
       });
 
-      for (const steamGame of owned.games) {
+      const gamesToProcess = this.maxItems ? owned.games.slice(0, this.maxItems) : owned.games;
+
+      await this.prisma.syncJob.update({
+        where: { id: data.syncJobId },
+        data: {
+          totalItems: gamesToProcess.length,
+        },
+      });
+
+      for (const steamGame of gamesToProcess) {
         try {
           const game = await this.findOrCreateGame(steamGame);
 

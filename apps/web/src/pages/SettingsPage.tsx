@@ -18,8 +18,8 @@ function SettingsSkeleton() {
         <Skeleton className="h-12 w-full max-w-2xl rounded-3xl" />
       </section>
       <section className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <Skeleton className="h-[360px] rounded-3xl" />
-        <Skeleton className="h-[360px] rounded-3xl" />
+        <Skeleton className="h-90 rounded-3xl" />
+        <Skeleton className="h-90 rounded-3xl" />
       </section>
     </div>
   );
@@ -80,7 +80,13 @@ export function SettingsPage() {
             <h2 className="mt-2 text-xl font-semibold text-text-primary">Sincronização automática</h2>
           </div>
           <div className="grid gap-4">
-            <Input label="Steam ID" value={steamId} onChange={(event) => setSteamId(event.target.value)} placeholder="7656119..." />
+            <Input
+              label="Steam ID"
+              value={steamId}
+              onChange={(event) => setSteamId(event.target.value)}
+              placeholder="76561198185150675"
+              helperText="Usa um Steam ID 64-bit com perfil público para o sync completo."
+            />
             <Select label="Plataforma" value={effectivePlatformId} onChange={(event) => setPlatformId(event.target.value)}>
               <option value="">Seleciona uma plataforma</option>
               {platforms.map((platform) => (

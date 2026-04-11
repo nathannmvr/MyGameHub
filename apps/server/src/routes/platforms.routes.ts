@@ -15,7 +15,7 @@ import {
   deletePlatform,
 } from "../controllers/platforms.controller.js";
 
-export const platformsRouter = Router();
+export const platformsRouter: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/platforms — List user's platforms
 platformsRouter.get("/", listPlatforms);

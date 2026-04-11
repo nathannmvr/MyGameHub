@@ -5,7 +5,7 @@
 import { Router } from "express";
 import { getDashboardStats } from "../controllers/dashboard.controller.js";
 
-export const dashboardRouter = Router();
+export const dashboardRouter: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/dashboard/stats — Dashboard statistics
 dashboardRouter.get("/stats", getDashboardStats);

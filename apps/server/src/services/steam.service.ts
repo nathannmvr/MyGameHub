@@ -56,17 +56,46 @@ export class SteamService {
       ];
   }
 
+  private shouldUseFixtureMode(): boolean {
+    if (process.env.NODE_ENV === "production") {
+      return false;
+    }
+
+    const normalizedKey = this.apiKey.trim();
+
+    if (!normalizedKey) {
+      return true;
+    }
+
+    return /^(test_|your_|example_|changeme)/i.test(normalizedKey);
+  }
+
+  private async readErrorBody(response: Response): Promise<string | null> {
+    try {
+      const body = await response.clone().text();
+      const trimmed = body.trim();
+
+      return trimmed.length > 0 ? trimmed.slice(0, 500) : null;
+    } catch {
+      return null;
+    }
+  }
+
   async getOwnedGames(steamId: string): Promise<SteamOwnedGamesResult> {
     if (!/^\d{17}$/.test(steamId)) {
       throw new AppError("STEAM_INVALID_ID", "Steam ID must be a 17-digit number", 400);
     }
 
-    // Local/dev fallback: keep sync flow testable without external Steam API key.
-    if (!this.apiKey) {
+    // Local/dev fallback: keep sync flow testable without a real Steam Web API key.
+    if (this.shouldUseFixtureMode()) {
       return {
         total: this.fixtureGames.length,
         games: this.fixtureGames,
       };
+    }
+
+    if (!this.apiKey.trim()) {
+      throw new AppError("STEAM_API_KEY_MISSING", "Steam API key is not configured", 500);
     }
 
     const url = new URL("/IPlayerService/GetOwnedGames/v1/", this.baseUrl);
@@ -79,7 +108,31 @@ export class SteamService {
     const response = await this.fetchFn(url.toString());
 
     if (!response.ok) {
-      throw new AppError("STEAM_API_ERROR", `Steam API request failed with status ${response.status}`, 502);
+      const errorBody = await this.readErrorBody(response);
+
+      if (response.status === 401) {
+        throw new AppError(
+          "STEAM_API_UNAUTHORIZED",
+          "Steam API rejected the configured key (401). Verify STEAM_API_KEY and the Steam Web API permissions.",
+          502,
+          {
+            steamId,
+            status: response.status,
+            body: errorBody,
+          }
+        );
+      }
+
+      throw new AppError(
+        "STEAM_API_ERROR",
+        `Steam API request failed with status ${response.status}`,
+        502,
+        {
+          steamId,
+          status: response.status,
+          body: errorBody,
+        }
+      );
     }
 
     const payload = (await response.json()) as SteamApiResponse;

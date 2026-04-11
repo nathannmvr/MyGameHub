@@ -16,7 +16,7 @@ import {
   deleteLibraryItem,
 } from "../controllers/library.controller.js";
 
-export const libraryRouter = Router();
+export const libraryRouter: ReturnType<typeof Router> = Router();
 
 // GET /api/v1/library — List library items (with filters, sorting, pagination)
 libraryRouter.get("/", validate(LibraryQuerySchema, "query"), listLibrary);

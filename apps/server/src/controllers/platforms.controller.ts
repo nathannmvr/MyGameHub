@@ -72,7 +72,7 @@ export async function updatePlatform(
 ): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    const platform = await getService().update(userId, req.params.id, req.body);
+    const platform = await getService().update(userId, String(req.params.id), req.body);
     res.json({ success: true, data: platform });
   } catch (error) {
     next(error);
@@ -87,7 +87,7 @@ export async function deletePlatform(
 ): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    const result = await getService().delete(userId, req.params.id);
+    const result = await getService().delete(userId, String(req.params.id));
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);

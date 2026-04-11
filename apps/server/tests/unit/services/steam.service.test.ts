@@ -5,15 +5,40 @@ import { describe, it, expect, vi } from "vitest";
 import { SteamService } from "../../../src/services/steam.service.js";
 import { AppError } from "../../../src/middleware/error-handler.js";
 
-function jsonResponse(data: unknown, status = 200) {
-  return {
+function createResponse(data: unknown, status = 200) {
+  const payload = typeof data === "string" ? data : JSON.stringify(data);
+
+  const response = {
     ok: status >= 200 && status < 300,
     status,
-    json: async () => data,
+    json: async () => (typeof data === "string" ? JSON.parse(data) : data),
+    text: async () => payload,
+    clone: () => response,
   } as Response;
+
+  return response;
+}
+
+function jsonResponse(data: unknown, status = 200) {
+  return createResponse(data, status);
+}
+
+function textResponse(body: string, status = 200) {
+  return createResponse(body, status);
 }
 
 describe("SteamService", () => {
+  it("placeholder api keys should use local fixture fallback instead of calling Steam", async () => {
+    const fetchFn = vi.fn();
+    const service = new SteamService({ apiKey: "test_steam_key", fetchFn });
+
+    const result = await service.getOwnedGames("76561198000000000");
+
+    expect(result.total).toBeGreaterThan(0);
+    expect(result.games).toHaveLength(result.total);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it("getOwnedGames should return owned games list", async () => {
     const fetchFn = vi.fn().mockResolvedValue(
       jsonResponse({
@@ -34,6 +59,17 @@ describe("SteamService", () => {
     expect(result.games).toHaveLength(2);
     expect(result.games[0].appId).toBe(570);
     expect(result.games[1].playtimeForever).toBe(8000);
+  });
+
+  it("steam 401 should throw STEAM_API_UNAUTHORIZED with diagnostic details", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(textResponse("Unauthorized", 401));
+
+    const service = new SteamService({ apiKey: "real_steam_key", fetchFn });
+
+    await expect(service.getOwnedGames("76561198000000000")).rejects.toMatchObject({
+      code: "STEAM_API_UNAUTHORIZED",
+      statusCode: 502,
+    } satisfies Partial<AppError>);
   });
 
   it("private profile should throw STEAM_PROFILE_PRIVATE", async () => {
