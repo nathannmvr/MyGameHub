@@ -1,6 +1,7 @@
 // tests/integration/routes/stubs.test.ts
-// Integration tests verifying all route stubs return 501 Not Implemented
-// These tests will evolve as routes are implemented in Phases 5-8
+// Integration tests verifying remaining route stubs return 501 Not Implemented
+// Routes that have been implemented have their own dedicated test files:
+// - Platforms: platforms.routes.test.ts ✅
 
 import { describe, it, expect } from "vitest";
 import request from "supertest";
@@ -8,38 +9,7 @@ import { createApp } from "../../../src/app.js";
 
 const app = createApp();
 
-describe("API Route Stubs — All return 501 Not Implemented", () => {
-  // ─── Platforms ───
-  describe("Platforms", () => {
-    it("GET /api/v1/platforms → 501", async () => {
-      const res = await request(app).get("/api/v1/platforms");
-      expect(res.status).toBe(501);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("POST /api/v1/platforms → 501", async () => {
-      const res = await request(app)
-        .post("/api/v1/platforms")
-        .send({ name: "Test", manufacturer: "Test" });
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("PUT /api/v1/platforms/:id → 501", async () => {
-      const res = await request(app)
-        .put("/api/v1/platforms/some-id")
-        .send({ name: "Updated" });
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-
-    it("DELETE /api/v1/platforms/:id → 501", async () => {
-      const res = await request(app).delete("/api/v1/platforms/some-id");
-      expect(res.status).toBe(501);
-      expect(res.body.error.code).toBe("NOT_IMPLEMENTED");
-    });
-  });
+describe("API Route Stubs — Remaining 501 Not Implemented", () => {
 
   // ─── Library ───
   describe("Library", () => {

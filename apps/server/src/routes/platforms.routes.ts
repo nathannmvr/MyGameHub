@@ -1,27 +1,30 @@
 // src/routes/platforms.routes.ts
-// Platform CRUD routes — Stub (501 Not Implemented)
-// Implementation: Phase 5
+// Platform CRUD routes — wired to controller with Zod validation
+// Ref: design.md §4.2, spec.md §3.1
 
 import { Router } from "express";
+import { validate } from "../middleware/validate.js";
+import {
+  CreatePlatformSchema,
+  UpdatePlatformSchema,
+} from "../schemas/index.js";
+import {
+  listPlatforms,
+  createPlatform,
+  updatePlatform,
+  deletePlatform,
+} from "../controllers/platforms.controller.js";
 
 export const platformsRouter = Router();
 
 // GET /api/v1/platforms — List user's platforms
-platformsRouter.get("/", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+platformsRouter.get("/", listPlatforms);
 
-// POST /api/v1/platforms — Create platform
-platformsRouter.post("/", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+// POST /api/v1/platforms — Create platform (with validation)
+platformsRouter.post("/", validate(CreatePlatformSchema), createPlatform);
 
-// PUT /api/v1/platforms/:id — Update platform
-platformsRouter.put("/:id", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+// PUT /api/v1/platforms/:id — Update platform (with validation)
+platformsRouter.put("/:id", validate(UpdatePlatformSchema), updatePlatform);
 
 // DELETE /api/v1/platforms/:id — Delete platform
-platformsRouter.delete("/:id", (_req, res) => {
-  res.status(501).json({ success: false, error: { code: "NOT_IMPLEMENTED", message: "Not implemented" } });
-});
+platformsRouter.delete("/:id", deletePlatform);
