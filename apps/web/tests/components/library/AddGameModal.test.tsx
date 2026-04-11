@@ -10,7 +10,8 @@ vi.mock('../../../src/hooks/use-game-search', () => ({
     isFetching: false,
     data: {
       data: [
-        { rawgId: 1, slug: 'game-1', title: 'Test Game', coverUrl: null, releaseDate: null, genres: [], platforms: ['PC'], metacritic: null, alreadyInLibrary: false },
+        { rawgId: 1, slug: 'game-1', title: 'Test Game', coverUrl: null, releaseDate: null, genres: [], platforms: ['PC'], metacritic: null, alreadyInLibrary: false, reason: 'GENRE_AFFINITY' },
+        { rawgId: 2, slug: 'game-2', title: 'Test Game 2', coverUrl: null, releaseDate: null, genres: [], platforms: ['PC'], metacritic: null, alreadyInLibrary: false, reason: 'GENRE_AFFINITY' },
       ],
     },
   }),
@@ -40,10 +41,11 @@ describe('AddGameModal', () => {
     const user = userEvent.setup();
     render(<AddGameModal open onClose={vi.fn()} />);
 
-    await user.type(screen.getByLabelText('Buscar jogo'), 'Test Game');
+    await user.type(await screen.findByLabelText(/Buscar jogo/i), 'Test Game');
 
-    expect(await screen.findByRole('button', { name: /Test Game/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Test Game/i }));
+    const resultButtons = await screen.findAllByRole('button', { name: /Test Game/i });
+    expect(resultButtons.length).toBeGreaterThan(0);
+    await user.click(resultButtons[0]);
     expect(screen.getAllByText('Test Game')).toHaveLength(2);
   });
 
@@ -53,8 +55,9 @@ describe('AddGameModal', () => {
 
     render(<AddGameModal open onClose={onClose} />);
 
-    await user.type(screen.getByLabelText('Buscar jogo'), 'Test Game');
-    await user.click(await screen.findByRole('button', { name: /Test Game/i }));
+    await user.type(await screen.findByLabelText(/Buscar jogo/i), 'Test Game');
+    const resultButtons = await screen.findAllByRole('button', { name: /Test Game/i });
+    await user.click(resultButtons[0]);
     await user.selectOptions(screen.getByLabelText('Status'), GameStatus.PLAYED);
     await user.click(screen.getByRole('button', { name: 'Adicionar' }));
 

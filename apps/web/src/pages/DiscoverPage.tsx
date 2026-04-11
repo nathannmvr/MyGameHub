@@ -5,6 +5,7 @@ import { useDiscover } from '../hooks/use-discover';
 import { useLibrary } from '../hooks/use-library';
 import { usePlatforms } from '../hooks/use-platforms';
 import { RecommendationGrid } from '../components/discover/RecommendationGrid';
+import { ColdStartEmpty } from '../components/discover/ColdStartEmpty';
 import { Modal } from '../components/ui/Modal';
 import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
@@ -56,6 +57,8 @@ export function DiscoverPage() {
       return;
     }
 
+    discoverQuery.onRecommendationAdd(selectedRecommendation);
+
     await libraryQuery.addLibraryItem.mutateAsync({
       rawgId: selectedRecommendation.rawgId,
       platformId: effectivePlatformId,
@@ -66,6 +69,7 @@ export function DiscoverPage() {
   };
 
   const dismissRecommendation = async (recommendation: GameSearchResult) => {
+    discoverQuery.onRecommendationDismiss(recommendation);
     await discoverQuery.dismissRecommendation.mutateAsync({
       rawgId: recommendation.rawgId,
       title: recommendation.title,
@@ -97,18 +101,23 @@ export function DiscoverPage() {
           recommendations={recommendations}
           onAdd={(recommendation) => setSelectedRecommendation(recommendation)}
           onDismiss={(recommendation) => void dismissRecommendation(recommendation)}
+          onImpression={discoverQuery.onRecommendationImpression}
         />
       ) : (
-        <EmptyState
-          title="Sem recomendações por agora"
-          description={
-            platforms.length === 0
-              ? 'Adiciona plataformas ativas para receber sugestões filtradas pelo teu hardware.'
-              : 'Ainda não há recomendações relevantes com base na tua biblioteca atual.'
-          }
-          actionLabel={platforms.length === 0 ? 'Ir para plataformas' : 'Abrir biblioteca'}
-          onAction={() => navigate(platforms.length === 0 ? '/platforms' : '/library')}
-        />
+        discoverQuery.isColdStart ? (
+          <ColdStartEmpty />
+        ) : (
+          <EmptyState
+            title="Sem recomendações por agora"
+            description={
+              platforms.length === 0
+                ? 'Adiciona plataformas ativas para receber sugestões filtradas pelo teu hardware.'
+                : 'Ainda não há recomendações relevantes com base na tua biblioteca atual.'
+            }
+            actionLabel={platforms.length === 0 ? 'Ir para plataformas' : 'Abrir biblioteca'}
+            onAction={() => navigate(platforms.length === 0 ? '/platforms' : '/library')}
+          />
+        )
       )}
 
       <Modal
