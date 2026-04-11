@@ -17,8 +17,7 @@ function SettingsSkeleton() {
         <Skeleton className="h-4 w-32 rounded-full" />
         <Skeleton className="h-12 w-full max-w-2xl rounded-3xl" />
       </section>
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <Skeleton className="h-90 rounded-3xl" />
+      <section className="max-w-2xl">
         <Skeleton className="h-90 rounded-3xl" />
       </section>
     </div>
@@ -29,9 +28,6 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const platformsQuery = usePlatforms();
   const steamSync = useSteamSync();
-  const [username, setUsername] = useState('Nathan');
-  const [email, setEmail] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
   const [steamId, setSteamId] = useState('');
   const [platformId, setPlatformId] = useState('');
 
@@ -58,22 +54,10 @@ export function SettingsPage() {
     <div className="space-y-6 animate-fade-in">
       <section className="space-y-4">
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-text-secondary">Definições</p>
-        <h1 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">Perfil e sincronização Steam.</h1>
+        <h1 className="font-display text-3xl font-bold text-text-primary sm:text-4xl">Sincronização Steam.</h1>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-        <div className="space-y-5 rounded-3xl border border-white/10 bg-background-card/80 p-6">
-          <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-text-secondary">Perfil</p>
-            <h2 className="mt-2 text-xl font-semibold text-text-primary">Dados básicos</h2>
-          </div>
-          <div className="grid gap-4">
-            <Input label="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
-            <Input label="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
-            <Input label="Avatar URL" value={avatarUrl} onChange={(event) => setAvatarUrl(event.target.value)} />
-          </div>
-        </div>
-
+      <section className="max-w-2xl">
         <div className="space-y-5 rounded-3xl border border-white/10 bg-background-card/80 p-6">
           <div>
             <p className="text-sm uppercase tracking-[0.28em] text-text-secondary">Steam</p>

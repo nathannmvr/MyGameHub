@@ -355,13 +355,15 @@ export class RecommendationService {
         return false;
       }
 
-      // Conservative profile blocks candidates overlapping dropped/low-rated genre signals.
-      if (query.profile === "conservative" && dislikedOverlap > 0) {
+      // Conservative: block only when negative signals strictly dominate the positive.
+      // Mixed candidates with strong positive overlap pass — the scorer's penalty weight
+      // handles the nuance and pushes them down the ranking appropriately.
+      if (query.profile === "conservative" && dislikedOverlap > 0 && likedOverlap < dislikedOverlap) {
         return false;
       }
 
       // Conservative mode avoids weak mixed-genre candidates with low quality signal.
-      if (query.profile === "conservative" && likedOverlap === 1 && hasMixedGenres && (candidate.metacritic ?? 0) < 75) {
+      if (query.profile === "conservative" && likedOverlap === 1 && hasMixedGenres && (candidate.metacritic ?? 0) < 70) {
         return false;
       }
 
@@ -413,9 +415,46 @@ export class RecommendationService {
     const rankedIds = ranked.map((item) => item.game.rawgId);
     const rankedSet = new Set(rankedIds);
 
-    const rankedCandidates = candidates
+    let rankedCandidates = candidates
       .filter((candidate) => rankedSet.has(candidate.rawgId))
       .sort((a, b) => rankedIds.indexOf(a.rawgId) - rankedIds.indexOf(b.rawgId));
+
+    // Fallback: if conservative filtering killed all candidates but pre-filter pool
+    // had data, relax to require only positive genre affinity (ignore disliked overlap).
+    if (rankedCandidates.length === 0 && allCandidates.length > 0 && query.profile === "conservative") {
+      const fallbackFiltered = allCandidates.filter((candidate) => {
+        if (dismissedRawgIds.has(candidate.rawgId)) return false;
+        const normalizedGenres = candidate.genres.map(normalizePreference);
+        const likedOverlap = normalizedGenres.filter((g) => likedGenreSet.has(g)).length;
+        return likedOverlap > 0;
+      });
+
+      const fallbackForScoring: GameForScoring[] = fallbackFiltered.map((c) => ({
+        rawgId: c.rawgId,
+        title: c.title,
+        genres: c.genres,
+        platforms: c.platforms,
+        releaseDate: c.releaseDate,
+        metacritic: c.metacritic,
+      }));
+
+      const fallbackRanked = this.scorer.rankGames(fallbackForScoring, profileData, 120);
+      const fallbackIds = fallbackRanked.map((item) => item.game.rawgId);
+      const fallbackIdSet = new Set(fallbackIds);
+
+      for (const entry of fallbackRanked) {
+        if (!scoreByRawgId.has(entry.game.rawgId)) {
+          scoreByRawgId.set(entry.game.rawgId, entry.scoreBreakdown);
+        }
+        if (!reasonByRawgId.has(entry.game.rawgId)) {
+          reasonByRawgId.set(entry.game.rawgId, RecommendationReason.GENRE_AFFINITY);
+        }
+      }
+
+      rankedCandidates = fallbackFiltered
+        .filter((c) => fallbackIdSet.has(c.rawgId))
+        .sort((a, b) => fallbackIds.indexOf(a.rawgId) - fallbackIds.indexOf(b.rawgId));
+    }
 
     const start = (query.page - 1) * query.pageSize;
     const paged = rankedCandidates.slice(start, start + query.pageSize);

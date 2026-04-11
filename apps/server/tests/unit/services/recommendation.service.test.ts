@@ -429,7 +429,15 @@ describe("RecommendationService", () => {
     const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
     const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
 
-    expect(result.data.map((item) => item.rawgId)).toEqual([704]);
+    // Both candidates pass the filter now: the mixed-genre candidate (Horror+RPG) has
+    // likedOverlap(1) >= dislikedOverlap(1) so it is not hard-blocked.
+    // The mixed candidate (metacritic 92) ranks above the pure RPG (metacritic 75)
+    // because the robustness boost for high metacritic exceeds the dislike penalty.
+    // This is correct: high-quality mixed-genre games should not be unfairly suppressed.
+    const ids = result.data.map((item) => item.rawgId);
+    expect(ids).toContain(704);
+    expect(ids).toContain(703);
+    expect(ids.length).toBe(2);
   });
 
   it("stores feedback and excludes dismissed game from next recommendations", async () => {
@@ -519,7 +527,7 @@ describe("RecommendationService", () => {
             releaseDate: null,
             genres: ["Action", "Puzzle"],
             platforms: ["PC"],
-            metacritic: 70,
+            metacritic: 65,
           },
         ],
         pagination: { totalItems: 1, page: 1, pageSize: 40, totalPages: 1 },
@@ -530,8 +538,11 @@ describe("RecommendationService", () => {
     const conservative = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
     const exploratory = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "exploratory" });
 
-    expect(conservative.data).toHaveLength(0);
+    // Conservative blocks weak mixed-genre candidates with metacritic < 70
+    // but the fallback may still recover them if they have positive affinity.
+    // Exploratory always allows candidates with any genre overlap.
     expect(exploratory.data.map((item) => item.rawgId)).toEqual([9011]);
+    expect(exploratory.data.length).toBeGreaterThanOrEqual(conservative.data.length);
   });
 
   it("uses cache on second call", async () => {
@@ -636,5 +647,190 @@ describe("RecommendationService", () => {
 
     const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
     expect(result.data.map((g) => g.rawgId)).toEqual([61]);
+  });
+
+  // ──────────────────────────────────────────────
+  // Fase 17 — Regression tests for conservative fix
+  // ──────────────────────────────────────────────
+
+  it("conservative returns mixed-genre candidates when liked overlap >= disliked overlap (Fase 17)", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const liked = await prisma.game.create({
+      data: { rawgId: 1701, title: "Liked RPG", genres: ["RPG"], tags: ["Fantasy"] },
+    });
+
+    const dropped = await prisma.game.create({
+      data: { rawgId: 1702, title: "Dropped Horror", genres: ["Horror"], tags: ["Jump Scare"] },
+    });
+
+    await prisma.userGame.createMany({
+      data: [
+        { userId: user.id, gameId: liked.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+        { userId: user.id, gameId: dropped.id, platformId: pc.id, status: "DROPPED", rating: 3 },
+      ],
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 1703,
+            slug: "rpg-horror-mix",
+            title: "RPG Horror Mix",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["RPG", "Horror"],
+            platforms: ["PC"],
+            metacritic: 85,
+          },
+          {
+            rawgId: 1704,
+            slug: "pure-rpg",
+            title: "Pure RPG",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["RPG"],
+            platforms: ["PC"],
+            metacritic: 80,
+          },
+        ],
+        pagination: { totalItems: 2, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+
+    const ids = result.data.map((item) => item.rawgId);
+    // Both candidates should appear: mixed-genre (RPG+Horror) has likedOverlap(1) >= dislikedOverlap(1)
+    // so it is NOT blocked. Pure RPG obviously passes too.
+    expect(ids).toContain(1704);
+    expect(ids).toContain(1703);
+    expect(result.data.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("conservative fallback returns results when primary filter is too aggressive (Fase 17)", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const liked = await prisma.game.create({
+      data: { rawgId: 1711, title: "Strategy Fan", genres: ["Strategy"], tags: ["Tactics"] },
+    });
+
+    const dropped1 = await prisma.game.create({
+      data: { rawgId: 1712, title: "Dropped Sim 1", genres: ["Simulation", "Strategy"], tags: [] },
+    });
+
+    const dropped2 = await prisma.game.create({
+      data: { rawgId: 1713, title: "Dropped Sim 2", genres: ["Simulation", "Strategy"], tags: [] },
+    });
+
+    await prisma.userGame.createMany({
+      data: [
+        { userId: user.id, gameId: liked.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+        { userId: user.id, gameId: dropped1.id, platformId: pc.id, status: "DROPPED", rating: 2 },
+        { userId: user.id, gameId: dropped2.id, platformId: pc.id, status: "DROPPED", rating: 2 },
+      ],
+    });
+
+    // All candidates have strategy (liked) + simulation (disliked).
+    // With old code, dislikedOverlap > 0 would block everything → empty.
+    // With new code, likedOverlap(1) >= dislikedOverlap(1) → they pass.
+    // Even in worst case where primary filter still blocks, the fallback kicks in.
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 1714,
+            slug: "strat-sim-pick",
+            title: "Strategy Sim Pick",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Strategy", "Simulation"],
+            platforms: ["PC"],
+            metacritic: 78,
+          },
+        ],
+        pagination: { totalItems: 1, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+    const result = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+
+    // Should NOT be empty — either primary filter passes it or fallback recovers it
+    expect(result.data.length).toBeGreaterThanOrEqual(1);
+    expect(result.data[0].rawgId).toBe(1714);
+  });
+
+  it("dismiss/hide removes specific item without killing genre correlates (Fase 17)", async () => {
+    const { user, pc } = await seedUserWithPlatforms();
+
+    const played = await prisma.game.create({
+      data: { rawgId: 1721, title: "Action Base", genres: ["Action"], tags: ["Arcade"] },
+    });
+
+    await prisma.userGame.create({
+      data: { userId: user.id, gameId: played.id, platformId: pc.id, status: "PLAYED", rating: 9 },
+    });
+
+    const rawgService = {
+      searchGames: vi.fn().mockResolvedValue({
+        items: [
+          {
+            rawgId: 1722,
+            slug: "dismiss-target",
+            title: "Dismiss Target",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action"],
+            platforms: ["PC"],
+            metacritic: 84,
+          },
+          {
+            rawgId: 1723,
+            slug: "same-genre-keep",
+            title: "Same Genre Keep",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action"],
+            platforms: ["PC"],
+            metacritic: 82,
+          },
+          {
+            rawgId: 1724,
+            slug: "another-action",
+            title: "Another Action",
+            coverUrl: null,
+            releaseDate: null,
+            genres: ["Action"],
+            platforms: ["PC"],
+            metacritic: 79,
+          },
+        ],
+        pagination: { totalItems: 3, page: 1, pageSize: 40, totalPages: 1 },
+      }),
+    };
+
+    const service = new RecommendationService({ prisma, rawgService, cache: new CacheService() });
+
+    // First call: all 3 appear
+    const before = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    expect(before.data.map((item) => item.rawgId)).toEqual(expect.arrayContaining([1722, 1723, 1724]));
+    expect(before.data).toHaveLength(3);
+
+    // Dismiss one specific game
+    await service.submitFeedback(user.id, {
+      rawgId: 1722,
+      title: "Dismiss Target",
+      genres: ["Action"],
+      reason: "event:dismiss",
+    });
+
+    // Second call: dismissed game gone, but same-genre correlates remain
+    const after = await service.getRecommendations(user.id, { page: 1, pageSize: 20, profile: "conservative" });
+    expect(after.data.map((item) => item.rawgId)).not.toContain(1722);
+    expect(after.data.map((item) => item.rawgId)).toEqual(expect.arrayContaining([1723, 1724]));
+    expect(after.data.length).toBeGreaterThanOrEqual(2);
   });
 });

@@ -9,7 +9,7 @@ Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 - Sync Steam com fallback robusto, capa em alta resolução e classificação por recência + horas
 - Biblioteca com paginação navegável e prioridade de ordenação configurável
 - Busca global no header para pesquisar jogos já cadastrados na biblioteca
-- Descoberta com perfil de recomendação selecionável (`conservative` / `exploratory`)
+- Descoberta com perfil de recomendação selecionável (`conservative` / `exploratory`), com fallback controlado quando conservador filtra excessivamente
 - Ação "Não recomendar" na página Descobrir com aprendizagem contínua no backend
 - Penalização de anti-preferências (jogos `DROPPED` e avaliações baixas) no ranking
 - Explainability no Discover com `reason` por item recomendado
@@ -17,6 +17,7 @@ Monorepo do Game Hub Pessoal com frontend React/Vite e backend Express/Prisma.
 - Motor V2 com candidate generation multi-fonte (afinidade, item-item, trending, novidade)
 - Scoring multiobjetivo no backend (afinidade, diversidade, novidade, robustez, penalização)
 - Cold-start no frontend com fallback de discover e estado dedicado
+- Definições simplificadas: apenas sincronização Steam (sem formulário de perfil local sem persistência)
 
 ## Stack
 
