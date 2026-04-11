@@ -1,9 +1,9 @@
 // packages/shared/src/domain/library.ts
 // Library (UserGame pivot) domain types
 
-import { GameStatus } from "../enums";
-import { Game } from "./game";
-import { Platform } from "./platform";
+import type { GameStatus } from "../enums";
+import type { Game } from "./game";
+import type { Platform } from "./platform";
 
 export interface LibraryItem {
   id: string;

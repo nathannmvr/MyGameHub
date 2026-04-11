@@ -1,18 +1,22 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { DashboardPage } from './pages/DashboardPage';
+import { DiscoverPage } from './pages/DiscoverPage';
+import { GameDetailPage } from './pages/GameDetailPage';
+import { LibraryPage } from './pages/LibraryPage';
+import { PlatformsPage } from './pages/PlatformsPage';
+import { SettingsPage } from './pages/SettingsPage';
+
 function App() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center animate-fade-in">
-        <h1 className="text-4xl font-bold font-display text-text-primary mb-4">
-          🎮 Game Hub Pessoal
-        </h1>
-        <p className="text-text-secondary text-lg">
-          A tua biblioteca de jogos unificada
-        </p>
-        <div className="mt-8 px-6 py-3 bg-primary rounded-xl text-text-primary font-medium inline-block">
-          Setup concluído com sucesso!
-        </div>
-      </div>
-    </div>
+    <Routes>
+      <Route path="/" element={<DashboardPage />} />
+      <Route path="/library" element={<LibraryPage />} />
+      <Route path="/library/:id" element={<GameDetailPage />} />
+      <Route path="/discover" element={<DiscoverPage />} />
+      <Route path="/platforms" element={<PlatformsPage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

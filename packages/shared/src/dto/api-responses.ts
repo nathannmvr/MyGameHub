@@ -1,7 +1,7 @@
 // packages/shared/src/dto/api-responses.ts
 // Standard API response wrappers and expanded DTOs
 
-import { GameStatus } from "../enums";
+import type { GameStatus } from "../enums";
 
 export interface ApiResponse<T> {
   success: boolean;

@@ -1,7 +1,7 @@
 // packages/shared/src/dto/steam.ts
 // Steam sync DTOs
 
-import { JobStatus, SyncType } from "../enums";
+import type { JobStatus, SyncType } from "../enums";
 
 export interface SteamSyncRequestDTO {
   steamId: string;
