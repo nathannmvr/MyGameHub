@@ -4,8 +4,10 @@
 
 import express from "express";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
 import { apiRouter } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { openApiDocument } from "./docs/openapi.js";
 
 export function createApp() {
   const app = express();
@@ -29,6 +31,12 @@ export function createApp() {
       },
     });
   });
+
+  // OpenAPI document and Swagger UI
+  app.get("/api/openapi.json", (_req, res) => {
+    res.json(openApiDocument);
+  });
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
   // ─── API v1 Routes ───
   app.use("/api/v1", apiRouter);
