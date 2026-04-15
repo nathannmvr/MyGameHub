@@ -15,7 +15,10 @@
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@gamehub/shared": ["./packages/shared"]
+    }
   },
   "exclude": ["node_modules", "dist", "coverage"]
 }
