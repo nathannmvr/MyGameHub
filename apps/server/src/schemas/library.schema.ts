@@ -49,7 +49,7 @@ export const AddToLibrarySchema = z.object({
     .nullable()
     .optional(),
 }).superRefine((data, ctx) => {
-  if (data.rawgId === undefined && !data.title?.trim()) {
+  if (data.rawgId === undefined && (typeof data.title !== 'string' || !data.title.trim())) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Provide rawgId or title to add a game",
