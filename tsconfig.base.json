@@ -17,7 +17,7 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@gamehub/shared": ["./packages/shared"]
+      "@gamehub/shared": ["./packages/shared/dist/index"]
     }
   },
   "exclude": ["node_modules", "dist", "coverage"]
