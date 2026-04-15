@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -b",
-    "start": "node dist/index.js",
+    "build": "npx prisma generate",
+    "start": "node --import tsx/esm src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "echo \"No linter configured yet\""
