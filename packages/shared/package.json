@@ -13,8 +13,8 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "dev": "tsc --project tsconfig.json --watch",
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
     "lint": "echo \"No linter configured yet\""
   },
   "devDependencies": {}
