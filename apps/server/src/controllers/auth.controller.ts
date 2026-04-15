@@ -7,10 +7,12 @@ const authService = new AuthService();
 function setSessionCookie(res: Response, sessionToken: string): void {
   const env = getEnv();
 
+  const isProduction = env.NODE_ENV === "production";
+
   res.cookie(env.SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     path: "/",
     maxAge: env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
   });
@@ -19,10 +21,12 @@ function setSessionCookie(res: Response, sessionToken: string): void {
 function clearSessionCookie(res: Response): void {
   const env = getEnv();
 
+  const isProduction = env.NODE_ENV === "production";
+
   res.clearCookie(env.SESSION_COOKIE_NAME, {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
     path: "/",
   });
 }
