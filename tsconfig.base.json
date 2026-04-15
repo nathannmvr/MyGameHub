@@ -14,11 +14,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./src",
-    "baseUrl": ".",
-    "paths": {
-      "@gamehub/shared": ["./packages/shared/dist/index"]
-    }
+    "rootDir": "./src"
   },
   "exclude": ["node_modules", "dist", "coverage"]
 }
